@@ -333,7 +333,7 @@ function Sup-Encrpyt {
             }
             else {
                 Write-Host "Zwischenablage geleert" -ForegroundColor Gray
-                Set-Clipboard ""
+                Set-Clipboard "-"
             }
         }
         catch {
@@ -368,7 +368,7 @@ function Sup-Encrpyt {
             }
             else {
                 Write-Host "Zwischenablage geleert" -ForegroundColor Gray
-                Set-Clipboard ""
+                Set-Clipboard "-"
             }
         }
         catch {
@@ -429,7 +429,7 @@ function Sup-Decrpyt {
             }
             else {
                 Write-Host "Zwischenablage geleert" -ForegroundColor Gray
-                Set-Clipboard ""
+                Set-Clipboard "-"
             }
         }
         catch {
@@ -457,7 +457,7 @@ function Sup-Decrpyt {
             }
             else {
                 Write-Host "Zwischenablage geleert" -ForegroundColor Gray
-                Set-Clipboard ""
+                Set-Clipboard "-"
             }
         }
         catch {
