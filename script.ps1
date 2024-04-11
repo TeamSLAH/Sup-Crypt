@@ -352,7 +352,7 @@ function Sup-Install {
     )
     Write-Host "Skript in die Zwischenablage kopieren und Enter druecken"
     Read-Host
-    $f = "z:\temp\cert2\abc\def\xyz.txt"
+    $f = $profile
 
     if (!(Test-Path $f)) {
         New-Item $f -Force
