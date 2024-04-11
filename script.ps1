@@ -1,4 +1,4 @@
-# Suportis Crypto Script V1.1 -START-
+# fuportis Crypto Script V1.2 -START-
 
 function Sup-CreateCertificate {
     [CmdletBinding()]
@@ -102,6 +102,74 @@ function GetZertifikateFromSubjectOrCN {
         }
     }
 }
+
+function SelectCertificate {
+    param(
+        $CnOrThumbprint = ""
+    )
+
+    $possible = Get-ChildItem Cert:\CurrentUser\My
+    if ($CnOrThumbprint -ne "") {
+        $possible = $possible | Where-Object { $_.Subject -match $CnOrThumbprint -or ($_.Thumbprint -match $CnOrThumbprint)}
+    }
+    if ($possible.Count -eq 0) {
+        $possible = Get-ChildItem Cert:\CurrentUser\My
+    }
+    if ($possible.Count -eq 0) {
+        return $null
+    }
+    if ($possible.Count -eq 1) {
+        return $possible[0]
+    }
+
+    $msg = ""
+    while($true) {
+        $nr = 0
+        Clear-Host
+        foreach($p in $possible) 
+        {
+            Write-Host ($nr+1) -ForegroundColor Yellow -NoNewline
+            $sub = $p.Subject
+            if ($sub.Length -lt 30) {
+                $sub += (" ") * (40 - $sub.Length)
+            }
+            if ($sub.ToUpper().StartsWith("CN=")) {
+                $sub = $sub.SubString(3)
+            }
+            Write-Host ". $($sub)" -NoNewline
+            Write-Host " $($p.Thumbprint)" -ForegroundColor Gray
+            $nr++
+        }
+        if ($msg -ne "") {
+            Write-Host "`n$msg" -ForegroundColor Red
+        }
+        Write-Host "`nNr. eingeben, Text fuer Filterung, keine Eingabe fuer Abbruch: " -NoNewline
+        $e = Read-Host 
+        $nr = -1
+        if ([int]::TryParse($e, [Ref] $nr)) {
+            if ($nr -gt 0 -and ($nr -le $possible.Count)) {
+                return $possible[$nr - 1]
+            }
+            else {
+                $msg = "Ungueltige Nummer"
+            }
+        }
+        else {
+            if ($e -ne "") {
+                $possible = $possible | Where-Object { $_.Subject -match $e -or ($_.Thumbprint -match $e)}
+                if ($possible.Count -eq 0) {
+                    $possible = Get-ChildItem Cert:\CurrentUser\My
+                }
+                if ($possible.Count -eq 1) {
+                    return $possible[0]
+                }
+            }
+            else {
+                return $null
+            }
+        }
+    }
+}
     
 
 function Sup-ExportCertificate {
@@ -118,6 +186,9 @@ function Sup-ExportCertificate {
     }
     else {
         $cert = (GetZertifikateFromSubjectOrCN $CnOrThumbprint)
+    }
+    if ($cert -eq $null) {
+        $cert = SelectCertificate $CnOrThumbprint
     }
 
     if ($cert -eq $null) {
@@ -217,11 +288,12 @@ function Sup-ImportCertificate {
 
 function Sup-Encrpyt {
     [CmdletBinding()]
-    [Alias("verschlüsseln", "verschluesseln", "encrypt")]
+    [Alias("ver", "verschlüsseln", "verschluesseln", "encrypt")]
     param(
         [ArgumentCompleter({Zertifikat_ArgumentCompleter @args})]
         $CnOrThumbprint = "",
-        $Filename = ""
+        $Filename = "",
+        [Switch] $Copy
     )
 
     if ($IsMacOS) {
@@ -248,27 +320,30 @@ function Sup-Encrpyt {
         try {
             $out = Protect-CmsMessage -Content $e -To $Global:cert
             Write-Host $out -ForegroundColor Yellow
-            Write-Host "Text verschluesselt, verschluesselter Text in die Zwischenablage kopiert" -ForegroundColor Green
-            Set-Clipboard $out
+            Write-Host "Text verschluesselt" -ForegroundColor Green
+            if (!($Copy)) {
+                $e = Read-Host "Soll der Text des CMS-String in die Zwischenablage kopiert werden? (J/n)"
+                if ($e -ne "N") {
+                    $Copy = $true
+                }
+            }
+            if ($Copy) {
+                Write-Host "CMS-String in die Zwischenablage kopiert" -ForegroundColor Green
+                Set-Clipboard $out
+            }
+            else {
+                Write-Host "Zwischenablage geleert" -ForegroundColor Gray
+                Set-Clipboard ""
+            }
         }
         catch {
             Write-Host "Fehler beim verschluesseln!" -ForegroundColor Red
         }
     }
     else {
-        $cert = $null
-        if ($CnOrThumbprint -eq "") {
-            $cn = Read-Host "DNS-Name eingeben (Enter fuer 'Suportis')"
-            if ($cn -eq "") {
-                $cn = "Suportis"
-            }
-
-            $cert = (GetZertifikateFromSubjectOrCN $cn)
+        if ($cert -eq $null) {
+            $cert = SelectCertificate $CnOrThumbprint
         }
-        else {
-            $cert = (GetZertifikateFromSubjectOrCN $CnOrThumbprint)
-        }
-
         if ($cert -eq $null) {
             Write-Host "Kein gueltiges Zertifikat gefunden! Abbruch" -ForegroundColor Red
             return
@@ -281,7 +356,20 @@ function Sup-Encrpyt {
             $out = Protect-CmsMessage -Content $e -to $cert.Subject
             Write-Host $out -ForegroundColor Yellow
             Write-Host "Text verschluesselt, verschluesselter Text in die Zwischenablage kopiert" -ForegroundColor Green
-            Set-Clipboard $out
+            if (!($Copy)) {
+                $e = Read-Host "Soll der Text des CMS-String in die Zwischenablage kopiert werden? (J/n)"
+                if ($e -ne "N") {
+                    $Copy = $true
+                }
+            }
+            if ($Copy) {
+                Write-Host "CMS-String in die Zwischenablage kopiert" -ForegroundColor Green
+                Set-Clipboard $out
+            }
+            else {
+                Write-Host "Zwischenablage geleert" -ForegroundColor Gray
+                Set-Clipboard ""
+            }
         }
         catch {
             Write-Host "Fehler beim verschluesseln!" -ForegroundColor Red
@@ -292,9 +380,10 @@ function Sup-Encrpyt {
 
 function Sup-Decrpyt {
     [CmdletBinding()]
-    [Alias("entschlüsseln", "entschluesseln", "decrypt")]
+    [Alias("ent","entschlüsseln", "entschluesseln", "decrypt")]
     param(
-        $Filename = ""
+        $Filename = "",
+        [Switch] $Copy
     )
 
     if ($IsMacOS) {
@@ -324,7 +413,20 @@ function Sup-Decrpyt {
             Write-Host "Entschluesselter Text:"
             Write-Host $out -ForegroundColor Yellow
             Write-Host "Text entschluesselt, entschluesselter Text in die Zwischenablage kopiert" -ForegroundColor Green
-            Set-Clipboard $out
+            if (!($Copy)) {
+                $e = Read-Host "Soll der entschluesselte Text in die Zwischenablage kopiert werden? (J/n)"
+                if ($e -ne "N") {
+                    $Copy = $true
+                }
+            }
+            if ($Copy) {
+                Write-Host "Entschluesselter Text in die Zwischenablage kopiert" -ForegroundColor Green
+                Set-Clipboard $out
+            }
+            else {
+                Write-Host "Zwischenablage geleert" -ForegroundColor Gray
+                Set-Clipboard ""
+            }
         }
         catch {
             Write-Host "Fehler beim entschluesseln!" -ForegroundColor Red
@@ -337,7 +439,20 @@ function Sup-Decrpyt {
             Write-Host "Entschluesselter Text:"
             Write-Host $out -ForegroundColor Yellow
             Write-Host "Text verschluesselt, verschluesselter Text in die Zwischenablage kopiert" -ForegroundColor Green
-            Set-Clipboard $out
+            if (!($Copy)) {
+                $e = Read-Host "Soll der entschluesselte Text in die Zwischenablage kopiert werden? (J/n)"
+                if ($e -ne "N") {
+                    $Copy = $true
+                }
+            }
+            if ($Copy) {
+                Write-Host "Entschluesselter Text in die Zwischenablage kopiert" -ForegroundColor Green
+                Set-Clipboard $out
+            }
+            else {
+                Write-Host "Zwischenablage geleert" -ForegroundColor Gray
+                Set-Clipboard ""
+            }
         }
         catch {
             Write-Host "Fehler beim verschluesseln!" -ForegroundColor Red
@@ -392,4 +507,4 @@ function Sup-Install {
     Set-Content -Path $f -Value $newContent
     Write-Host "Suportis Crypto Script installiert/upgedatet" -ForegroundColor Green
 }
-# Suportis Crypto Script V1.0 -END-
+# Suportis Crypto Script V1.2 -END-
