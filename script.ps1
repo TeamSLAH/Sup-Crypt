@@ -1,4 +1,4 @@
-# Suportis Crypto Script V1.0 -START-
+# Suportis Crypto Script V1.1 -START-
 
 function Sup-CreateCertificate {
     [CmdletBinding()]
