@@ -1,4 +1,4 @@
-# fuportis Crypto Script V1.2 -START-
+# fuportis Crypto Script V1.3 -START-
 
 function Sup-CreateCertificate {
     [CmdletBinding()]
@@ -377,7 +377,10 @@ function Sup-Encrpyt {
     }
 }
 
-
+function IsCMSInClip {
+    $con = Get-Clipboard -Raw
+    return ($con.Contains("-----BEGIN CMS-----") -and $con.Contains("-----END CMS-----")) 
+}
 function Sup-Decrpyt {
     [CmdletBinding()]
     [Alias("ent","entschlüsseln", "entschluesseln", "decrypt")]
@@ -406,8 +409,9 @@ function Sup-Decrpyt {
             Write-Host "Kein Zertifikat geladen/importiert! Abbruch" -ForegroundColor Red
             return
         }
-
-        $e = Read-Host "Zu entschluesselnden Text in die Zwischenablage kopieren und Enter druecken."
+        if (!(IsCMSInClip)) {
+            $e = Read-Host "Zu entschluesselnden Text in die Zwischenablage kopieren und Enter druecken."
+        }
         try {
             $out = Unprotect-CmsMessage -Content (Get-Clipboard -Raw) -To $Global:cert
             Write-Host "Entschluesselter Text:"
@@ -433,7 +437,9 @@ function Sup-Decrpyt {
         }
     }
     else {
-        $e = Read-Host "Zu entschluesselnden Text in die Zwischenablage kopieren und Enter druecken."
+        if (!(IsCMSInClip)) {
+            $e = Read-Host "Zu entschluesselnden Text in die Zwischenablage kopieren und Enter druecken."
+        }
         try {
             $out = Unprotect-CmsMessage -Content (Get-Clipboard -Raw)
             Write-Host "Entschluesselter Text:"
@@ -455,7 +461,7 @@ function Sup-Decrpyt {
             }
         }
         catch {
-            Write-Host "Fehler beim verschluesseln!" -ForegroundColor Red
+            Write-Host "Fehler beim entschluesseln!" -ForegroundColor Red
         }
     }
 }
@@ -507,4 +513,4 @@ function Sup-Install {
     Set-Content -Path $f -Value $newContent
     Write-Host "Suportis Crypto Script installiert/upgedatet" -ForegroundColor Green
 }
-# Suportis Crypto Script V1.2 -END-
+# Suportis Crypto Script V1.3 -END-
