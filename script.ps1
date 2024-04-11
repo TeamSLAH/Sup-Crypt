@@ -1,4 +1,4 @@
-# fuportis Crypto Script V1.3 -START-
+# fuportis Crypto Script V1.4 -START-
 
 function Sup-CreateCertificate {
     [CmdletBinding()]
@@ -466,6 +466,46 @@ function Sup-Decrpyt {
     }
 }
 
+function Sup-RemoveCertificate {
+    [CmdletBinding()]
+    [Alias("delzert", "zertdel", "remzert", "zertrem", "removezert", "zertremove", "deletezert", "zertdelete" )]
+    param(
+        [ArgumentCompleter({Zertifikat_ArgumentCompleter @args})]
+        $CnOrThumbprint = ""
+    )
+
+    if ($IsMacOS) {
+        Write-host "Zertifikate sind auf dem Mac nicht in einem Schlüsselbund sondern liegen nur als .pfx Datei vor."
+        Write-Host "Diese können mit del <Dateiname> oder im Finder gelöscht werden."
+        $e = Read-Host "Soll der Finder für das aktuelle Verzeichnis geöffnet werden? (j/N)"
+        if ($e -eq "J") {
+            Invoke-Item .
+        }
+        return
+    }
+    else {
+        while($true) {
+            $cert = SelectCertificate $CnOrThumbprint
+            if ($cert -eq $null) {
+                break
+            }
+
+            if ($cert -eq $null) {
+                Write-Host "Kein gueltiges Zertifikat gefunden! Abbruch" -ForegroundColor Red
+                return
+            }
+            $e = Read-Host "Zertifikat $($cert.Subject) loeschen? (j/N)"
+            if ($e -eq "J") {
+                Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)" -Force
+                Write-Host "Zertifikat geloescht!"
+            }
+            else {
+                Write-Host "Zertifikat nicht geloescht."
+            }
+        }
+    }
+}
+
 function Sup-Install {
     [CmdletBinding()]
     [Alias("instzert", "zertinst")]
@@ -513,4 +553,4 @@ function Sup-Install {
     Set-Content -Path $f -Value $newContent
     Write-Host "Suportis Crypto Script installiert/upgedatet" -ForegroundColor Green
 }
-# Suportis Crypto Script V1.3 -END-
+# Suportis Crypto Script V1.4 -END-
