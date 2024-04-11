@@ -1,4 +1,5 @@
 # Suportis Crypto Script V1.0 -START-
+
 function Sup-CreateCertificate {
     [CmdletBinding()]
     [Alias("zert","zertifikat", "makecert")]
@@ -360,6 +361,7 @@ function Sup-Install {
     $content = Get-Content -Path $f
     $newContent = @()
     $inscript=$false
+    $installed = $false
     foreach($row in $content) {
         if ($row.StartsWith("# Suportis Crypto Script")) {
             if ($row.EndsWith("-START-")) {
@@ -371,10 +373,17 @@ function Sup-Install {
                 foreach($row in $clip) {
                     $newContent += $row
                 }
+                $installed = $true
                 continue
             }
         }
         if (!($inscript)) {
+            $newContent += $row
+        }
+    }
+    if (!($installed)) {
+        $clip = Get-Clipboard
+        foreach($row in $clip) {
             $newContent += $row
         }
     }
