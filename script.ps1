@@ -1,4 +1,4 @@
-# fuportis Crypto Script V1.5 -START-
+# Suportis Crypto Script V1.5 -START-
 
 function Sup-CreateCertificate {
     [CmdletBinding()]
@@ -27,7 +27,7 @@ function Sup-CreateCertificate {
 
 function Sup-ExportCertificate {
     [CmdletBinding()]
-    [Alias("exportzert","zertexport","exportzertifikat", "exptcert")]
+    [Alias("exportzert", "expzert", "zertexport","exportzertifikat", "exptcert")]
     param(
         [ArgumentCompleter({Zertifikat_ArgumentCompleter @args})]
         $CnOrThumbprint = "",
@@ -100,7 +100,7 @@ function Sup-ExportCertificate {
 
 function Sup-ImportCertificate {
     [CmdletBinding()]
-    [Alias("importzert","zertimport","importzertifikat", "impcert")]
+    [Alias("importzert", "impzert", "zertimport","importzertifikat", "impcert")]
     param(
         $Filename = ""
     )
@@ -606,7 +606,7 @@ function SelectCertificate {
         {
             Write-Host ($nr+1) -ForegroundColor Yellow -NoNewline
             $sub = $p.Subject
-            if ($sub.Length -lt 30) {
+            if ($sub.Length -lt 40) {
                 $sub += (" ") * (40 - $sub.Length)
             }
             if ($sub.ToUpper().StartsWith("CN=")) {
@@ -661,6 +661,9 @@ function PfxFileSelect {
     }
     $fullFolder = (Join-Path $folder "*.pfx")
     $filesAll = Get-ChildItem $fullFolder
+    if ($filesAll -isnot [Object[]]) {
+        $filesAll = @($filesAll)
+    }
     if ($filesAll.Count -eq 0) {
         Write-Host "Keine .pfx Dateien im angegebenen Ordner! Abbruch" -ForegroundColor Red
         return $null
@@ -688,8 +691,27 @@ function PfxFileSelect {
         if ($msg -ne "") {
             Write-Host "`n$msg" -ForegroundColor Red
         }
-        Write-Host "`nNr. eingeben, Text fuer Filterung, keine Eingabe fuer Abbruch: " -NoNewline
+        Write-Host "`nNr. eingeben, Text fuer Filterung, keine Eingabe fuer Abbruch, *=anderer Ordner: " -NoNewline
         $e = Read-Host 
+        if ($e -eq "*") {
+            $folderNeu = FolderSelect
+            if ($folderNeu -eq "" -or $folderNeu -eq $null) {
+                $msg = "Kein oder ungueltiger Ordner" 
+                continue
+            }
+            $fullFolderNeu = (Join-Path $folderNeu "*.pfx")
+            $filesAllNeu = Get-ChildItem $fullFolderNeu
+            if ($filesAllNeu -isnot [Object[]]) {
+                $filesAllNeu = @($filesAllNeu)
+            }
+            if ($filesAllNeu.Count -eq 0) {
+                $msg = "Keine .pfx Dateien im angegebenen Ordner!" 
+                continue
+            }
+            $filesAll = $filesAllNeu
+            $files = $filesAll.Clone()
+            continue
+        }
         $nr = -1
         if ([int]::TryParse($e, [Ref] $nr)) {
             if ($nr -gt 0 -and ($nr -le $files.Count)) {
