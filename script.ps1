@@ -1,4 +1,4 @@
-# fuportis Crypto Script V1.4 -START-
+# fuportis Crypto Script V1.5 -START-
 
 function Sup-CreateCertificate {
     [CmdletBinding()]
@@ -8,7 +8,7 @@ function Sup-CreateCertificate {
     )
     if ($cn -eq "") {
         Write-Host "DnsName eingeben."
-        Write-Host "Hier kann z.B. Kunde-Projektname verwendet werden" -ForegroundColor Gray
+        Write-Host "Hier kann z.B. Kunde-Projektname oder Mitarbeitername verwendet werden" -ForegroundColor Gray
         $cn = Read-Host "DnsName"
     }
     
@@ -21,156 +21,9 @@ function Sup-CreateCertificate {
 
     $e = Read-Host "Soll dieses gleich exportiert werden? (J/n)"
     if ($e -ne "N") {
-        Sup-ExportCertificate
+        Sup-ExportCertificate -cert $Global:cert
     }
 }
-
-function Zertifikat_ArgumentCompleter {
-    param(
-        $commandName,
-        $parameterName,
-        $wordToComplete,
-        $commandAst,
-        $fakeBoundParameters
-    )
- 
-    $posibleItems = @()
-
-    $zertifikate = Get-ChildItem Cert:\CurrentUser\My\
-
-    foreach($zert in $zertifikate) {
-        $sub = $zert.Subject
-        if ($sub -eq $null) {
-            $sub=""
-        }
-        if ($wordToComplete.ToUpper().StartsWith("CN=")) {
-            if ($sub -match "^$($wordToComplete).*") {
-                $item = [PSCustomObject]@{
-                    shortName = $zert.Subject
-                    longName = $zert.Subject
-                    toolTip = "Thumbprint: $($zert.Thumbprint)"
-                }
-                $posibleItems += $item
-            }
-        }  
-        else {
-            if ($sub.Length -gt 3) {
-                if ($sub.SubString(3) -match "$($wordToComplete).*" -or ($zert.Thumbprint -match "^$($wordToComplete)")) {
-                    $item = [PSCustomObject]@{
-                        shortName = $zert.Subject.SubString(3)
-                        longName = $zert.Subject.SubString(3)
-                        toolTip = "Thumbprint: $($zert.Thumbprint)"
-                    }
-                    $posibleItems += $item
-                }
-            } 
-        }
-    }
-    # Auswertung
-    foreach($item in $posibleItems) {
-        New-Object System.Management.Automation.CompletionResult (
-            $item.shortName,
-            $item.longName,
-            "ParameterValue",
-            $item.toolTip
-        )
-    }
-}
-function GetZertifikateFromSubjectOrCN {
-    param(
-        $subjectOrCn = ""
-    )
- 
-    $zertifikate = Get-ChildItem Cert:\CurrentUser\My\
-
-    foreach($zert in $zertifikate) {
-        $sub = $zert.Subject
-        if ($sub -eq $null) {
-            $sub=""
-        }
-        if ($subjectOrCn.ToUpper().StartsWith("CN=")) {
-            if ($sub -eq "$($subjectOrCn)") {
-                return $zert
-            }
-        }  
-        else {
-            if ($sub.Length -gt 3) {
-                if ($sub.SubString(3) -eq "$($subjectOrCn)" -or ($zert.Thumbprint -eq "$($subjectOrCn)")) {
-                    return $zert
-                }
-            } 
-        }
-    }
-}
-
-function SelectCertificate {
-    param(
-        $CnOrThumbprint = ""
-    )
-
-    $possible = Get-ChildItem Cert:\CurrentUser\My
-    if ($CnOrThumbprint -ne "") {
-        $possible = $possible | Where-Object { $_.Subject -match $CnOrThumbprint -or ($_.Thumbprint -match $CnOrThumbprint)}
-    }
-    if ($possible.Count -eq 0) {
-        $possible = Get-ChildItem Cert:\CurrentUser\My
-    }
-    if ($possible.Count -eq 0) {
-        return $null
-    }
-    if ($possible.Count -eq 1) {
-        return $possible[0]
-    }
-
-    $msg = ""
-    while($true) {
-        $nr = 0
-        Clear-Host
-        foreach($p in $possible) 
-        {
-            Write-Host ($nr+1) -ForegroundColor Yellow -NoNewline
-            $sub = $p.Subject
-            if ($sub.Length -lt 30) {
-                $sub += (" ") * (40 - $sub.Length)
-            }
-            if ($sub.ToUpper().StartsWith("CN=")) {
-                $sub = $sub.SubString(3)
-            }
-            Write-Host ". $($sub)" -NoNewline
-            Write-Host " $($p.Thumbprint)" -ForegroundColor Gray
-            $nr++
-        }
-        if ($msg -ne "") {
-            Write-Host "`n$msg" -ForegroundColor Red
-        }
-        Write-Host "`nNr. eingeben, Text fuer Filterung, keine Eingabe fuer Abbruch: " -NoNewline
-        $e = Read-Host 
-        $nr = -1
-        if ([int]::TryParse($e, [Ref] $nr)) {
-            if ($nr -gt 0 -and ($nr -le $possible.Count)) {
-                return $possible[$nr - 1]
-            }
-            else {
-                $msg = "Ungueltige Nummer"
-            }
-        }
-        else {
-            if ($e -ne "") {
-                $possible = $possible | Where-Object { $_.Subject -match $e -or ($_.Thumbprint -match $e)}
-                if ($possible.Count -eq 0) {
-                    $possible = Get-ChildItem Cert:\CurrentUser\My
-                }
-                if ($possible.Count -eq 1) {
-                    return $possible[0]
-                }
-            }
-            else {
-                return $null
-            }
-        }
-    }
-}
-    
 
 function Sup-ExportCertificate {
     [CmdletBinding()]
@@ -178,17 +31,15 @@ function Sup-ExportCertificate {
     param(
         [ArgumentCompleter({Zertifikat_ArgumentCompleter @args})]
         $CnOrThumbprint = "",
-        $Filename = ""
+        $Filename = "",
+        $cert = $null
 
     )
-    if ($CnOrThumbprint -eq "" -and $Global:cert -ne $null) {
-        $cert = $Global:cert
-    }
-    else {
-        $cert = (GetZertifikateFromSubjectOrCN $CnOrThumbprint)
-    }
     if ($cert -eq $null) {
-        $cert = SelectCertificate $CnOrThumbprint
+        $cert = (GetZertifikateFromSubjectOrCN $CnOrThumbprint)
+        if ($cert -eq $null) {
+            $cert = SelectCertificate $CnOrThumbprint
+        }
     }
 
     if ($cert -eq $null) {
@@ -197,20 +48,48 @@ function Sup-ExportCertificate {
     } 
 
     if ($Filename -eq "") {
-        Write-Host "Es wird der Standard-Dateiname " -NoNewline
-        Write-Host "cert.pfx" -ForegroundColor Yellow -NoNewline
-        Write-Host " verwendet"
-        $Filename = "cert.pfx"
+        $folder = FolderSelect
+        if ($folder -eq $null) {
+            return
+        }
+        if ($folder -eq "") {
+            Write-Host "Es wird der Standard-Dateiname " -NoNewline
+            Write-Host "cert.pfx" -ForegroundColor Yellow -NoNewline
+            Write-Host " am aktuellen Ordner verwendet"
+            $Filename = "cert.pfx"
+        }
+        else {
+            $name = $cert.Subject
+            if ($name.ToUpper().StartsWith("CN=")) {
+                $name = $name.SubString(3)
+            }
+
+            Write-Host "Dateiname (Enter=" -NoNewline
+            Write-Host $name -ForegroundColor Yellow -NoNewline
+            Write-Host "): " -NoNewline
+            $e = Read-Host
+            if ($e -eq "" ) {
+                $Filename = (Join-Path $folder "$($name).pfx")
+            }
+            else {
+                if (!($e.ToUpper().StartsWith(".PFX"))) {
+                    $e += ".pfx"
+                }
+                $Filename = (Join-Path $folder $e)
+            }
+        }
     }
 
     $pwd = Read-Host "Passwort" -AsSecureString
     $pwd2 = Read-Host "Passwort wiederholen" -AsSecureString
     if (Compare-SecureString $pwd $pwd2) {
-        Try {
+        try {
             Export-PfxCertificate "Cert:\CurrentUser\My\$($cert.Thumbprint)" -FilePath $Filename -Password $pwd 
         }
         catch {
-            Write-Host "Nicht exportiert. Ggfs. handelt es sich um ein importiertes Zertifikat. Diese koennen nicht exportiert werden!" -ForegroundColor Red
+            Write-Host "Fehler beim Exportieren des Zertifikats!" -ForegroundColor Red
+            Write-Host "Ggfs. handelt es sich um ein ehemals importieres Zertifikat."
+            Write-Host "Diese können nicht exportiert werden (nur der Ersteller kann exportieren)"
         }
     }
     else {
@@ -218,40 +97,6 @@ function Sup-ExportCertificate {
     }
 }
 
-function Compare-SecureString {
-    param(
-      [Security.SecureString]
-      $secureString1,
-  
-      [Security.SecureString]
-      $secureString2
-    )
-    try {
-      $bstr1 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureString1)
-      $bstr2 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureString2)
-      $length1 = [Runtime.InteropServices.Marshal]::ReadInt32($bstr1,-4)
-      $length2 = [Runtime.InteropServices.Marshal]::ReadInt32($bstr2,-4)
-      if ( $length1 -ne $length2 ) {
-        return $false
-      }
-      for ( $i = 0; $i -lt $length1; ++$i ) {
-        $b1 = [Runtime.InteropServices.Marshal]::ReadByte($bstr1,$i)
-        $b2 = [Runtime.InteropServices.Marshal]::ReadByte($bstr2,$i)
-        if ( $b1 -ne $b2 ) {
-          return $false
-        }
-      }
-      return $true
-    }
-    finally {
-      if ( $bstr1 -ne [IntPtr]::Zero ) {
-        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr1)
-      }
-      if ( $bstr2 -ne [IntPtr]::Zero ) {
-        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr2)
-      }
-    }
-}
 
 function Sup-ImportCertificate {
     [CmdletBinding()]
@@ -260,10 +105,16 @@ function Sup-ImportCertificate {
         $Filename = ""
     )
     if ($Filename -eq "") {
-        Write-Host "Es wird der Standard-Dateiname " -NoNewline
-        Write-Host "cert.pfx" -ForegroundColor Yellow -NoNewline
-        Write-Host " verwendet"
-        $Filename = "cert.pfx"
+        $Filename = PfxFileSelect
+        if ($Filename -eq $null) {
+            return
+        }
+        if ($Filename -eq "") {
+            Write-Host "Es wird der Standard-Dateiname " -NoNewline
+            Write-Host "cert.pfx" -ForegroundColor Yellow -NoNewline
+            Write-Host " verwendet"
+            $Filename = "cert.pfx"
+        }
     }
     if (!(Test-Path $Filename)) {
         Write-Host "Zertifikat-Datei " -NoNewline -ForegroundColor Red
@@ -296,8 +147,37 @@ function Sup-Encrpyt {
         [Switch] $Copy
     )
 
+    if ($Global:cert -ne $null) {
+        $cert = $Global:cert
+        if (!($IsMac)) {
+            if (!(Test-Path "Cert:\CurrentUser\My\$($cert.Thumbprint)")) {
+                $cert = $null
+                $Global:cert = $null
+            }
+        }
+    }
+    if ($Global:cert -ne $null) {
+        Write-Host "Soll das Zertifikat " -NoNewline
+        $sub = $Global:cert.Subject
+        if ($sub.ToUpper().StartsWith("CN=")) {
+            $sub = $sub.SubString(3)
+        }
+        Write-Host $sub -ForegroundColor Yellow -NoNewline
+        Write-Host " verwendet werden? (J/n): " -NoNewline
+        $e = Read-Host
+        if ($e -eq "N") {
+            $Global:cert = $null
+            $cert = $null
+        }
+    }
     if ($IsMacOS) {
         if ($Global:cert -eq $null) {
+            if ($Filename -eq "") {
+                $Filename = PfxFileSelect
+                if ($Filename -eq $null) {
+                    return
+                }
+            }
             if ($Filename -eq "") {
                 Write-Host "Es wird der Standard-Dateiname " -NoNewline
                 Write-Host "cert.pfx" -ForegroundColor Yellow -NoNewline
@@ -310,7 +190,13 @@ function Sup-Encrpyt {
                 Write-Host " nicht gefunden! Abbruch" -ForegroundColor Red
                 return
             }
-            Sup-ImportCertificate -Filename $Filename
+            if ($Global:cert -eq $null) {
+                Sup-ImportCertificate -Filename $Filename
+            }
+        }
+        if ($Global:cert -eq $null) {
+            Write-Host "Kein Zertifikat für Verschlüsselung gewählt! Abbruch" -ForegroundColor Red
+            return
         }
 
         $e = Read-Host "Zu verschluesselnden Text (Enter=aus der Zwischenablage)"
@@ -341,8 +227,11 @@ function Sup-Encrpyt {
         }
     }
     else {
-        if ($cert -eq $null) {
+        if ($Global:cert -eq $null) {
             $cert = SelectCertificate $CnOrThumbprint
+        }
+        else {
+            $cert = $Global:cert
         }
         if ($cert -eq $null) {
             Write-Host "Kein gueltiges Zertifikat gefunden! Abbruch" -ForegroundColor Red
@@ -390,7 +279,28 @@ function Sup-Decrpyt {
     )
 
     if ($IsMacOS) {
+        if (!($Global:cert -eq $null)) {
+        Write-Host "Soll das Zertifikat " -NoNewline
+        $sub = $Global:cert.Subject
+        if ($sub.ToUpper().StartsWith("CN=")) {
+            $sub = $sub.SubString(3)
+        }
+        Write-Host $sub -ForegroundColor Yellow -NoNewline
+        Write-Host " verwendet werden? (J/n): " -NoNewline
+        $e = Read-Host
+        if ($e -eq "N") {
+            $Global:cert = $null
+            $cert = $null
+        }
+        }
+
         if ($Global:cert -eq $null) {
+            if ($Filename -eq "") {
+                $Filename = PfxFileSelect
+                if ($Filename -eq $null) {
+                    return
+                }
+            }
             if ($Filename -eq "") {
                 Write-Host "Es wird der Standard-Dateiname " -NoNewline
                 Write-Host "cert.pfx" -ForegroundColor Yellow -NoNewline
@@ -400,13 +310,15 @@ function Sup-Decrpyt {
             if (!(Test-Path $Filename)) {
                 Write-Host "Zertifikat-Datei " -NoNewline -ForegroundColor Red
                 Write-Host $Filename -NoNewline -ForegroundColor Yellow
-                Write-Host " nicht gefudnen! Abbruch" -ForegroundColor Red
+                Write-Host " nicht gefunden! Abbruch" -ForegroundColor Red
                 return
             }
+            if ($Global:cert -eq $null) {
+                Sup-ImportCertificate -Filename $Filename
+            }
         }
-        Sup-ImportCertificate -Filename $Filename
         if ($Global:cert -eq $null) {
-            Write-Host "Kein Zertifikat geladen/importiert! Abbruch" -ForegroundColor Red
+            Write-Host "Kein Zertifikat für Verschlüsselung gewählt! Abbruch" -ForegroundColor Red
             return
         }
         if (!(IsCMSInClip)) {
@@ -553,4 +465,328 @@ function Sup-Install {
     Set-Content -Path $f -Value $newContent
     Write-Host "Suportis Crypto Script installiert/upgedatet" -ForegroundColor Green
 }
-# Suportis Crypto Script V1.4 -END-
+# Hilfsfunktionen
+
+function Compare-SecureString {
+    param(
+      [Security.SecureString]
+      $secureString1,
+  
+      [Security.SecureString]
+      $secureString2
+    )
+    try {
+      $bstr1 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureString1)
+      $bstr2 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureString2)
+      $length1 = [Runtime.InteropServices.Marshal]::ReadInt32($bstr1,-4)
+      $length2 = [Runtime.InteropServices.Marshal]::ReadInt32($bstr2,-4)
+      if ( $length1 -ne $length2 ) {
+        return $false
+      }
+      for ( $i = 0; $i -lt $length1; ++$i ) {
+        $b1 = [Runtime.InteropServices.Marshal]::ReadByte($bstr1,$i)
+        $b2 = [Runtime.InteropServices.Marshal]::ReadByte($bstr2,$i)
+        if ( $b1 -ne $b2 ) {
+          return $false
+        }
+      }
+      return $true
+    }
+    finally {
+      if ( $bstr1 -ne [IntPtr]::Zero ) {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr1)
+      }
+      if ( $bstr2 -ne [IntPtr]::Zero ) {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr2)
+      }
+    }
+}
+function Zertifikat_ArgumentCompleter {
+    param(
+        $commandName,
+        $parameterName,
+        $wordToComplete,
+        $commandAst,
+        $fakeBoundParameters
+    )
+ 
+    $posibleItems = @()
+
+    $zertifikate = Get-ChildItem Cert:\CurrentUser\My\
+
+    foreach($zert in $zertifikate) {
+        $sub = $zert.Subject
+        if ($sub -eq $null) {
+            $sub=""
+        }
+        if ($wordToComplete.ToUpper().StartsWith("CN=")) {
+            if ($sub -match "^$($wordToComplete).*") {
+                $item = [PSCustomObject]@{
+                    shortName = $zert.Subject
+                    longName = $zert.Subject
+                    toolTip = "Thumbprint: $($zert.Thumbprint)"
+                }
+                $posibleItems += $item
+            }
+        }  
+        else {
+            if ($sub.Length -gt 3) {
+                if ($sub.SubString(3) -match "$($wordToComplete).*" -or ($zert.Thumbprint -match "^$($wordToComplete)")) {
+                    $item = [PSCustomObject]@{
+                        shortName = $zert.Subject.SubString(3)
+                        longName = $zert.Subject.SubString(3)
+                        toolTip = "Thumbprint: $($zert.Thumbprint)"
+                    }
+                    $posibleItems += $item
+                }
+            } 
+        }
+    }
+    # Auswertung
+    foreach($item in $posibleItems) {
+        New-Object System.Management.Automation.CompletionResult (
+            $item.shortName,
+            $item.longName,
+            "ParameterValue",
+            $item.toolTip
+        )
+    }
+}
+function GetZertifikateFromSubjectOrCN {
+    param(
+        $subjectOrCn = ""
+    )
+ 
+    $zertifikate = Get-ChildItem Cert:\CurrentUser\My\
+
+    foreach($zert in $zertifikate) {
+        $sub = $zert.Subject
+        if ($sub -eq $null) {
+            $sub=""
+        }
+        if ($subjectOrCn.ToUpper().StartsWith("CN=")) {
+            if ($sub -eq "$($subjectOrCn)") {
+                return $zert
+            }
+        }  
+        else {
+            if ($sub.Length -gt 3) {
+                if ($sub.SubString(3) -eq "$($subjectOrCn)" -or ($zert.Thumbprint -eq "$($subjectOrCn)")) {
+                    return $zert
+                }
+            } 
+        }
+    }
+}
+
+function SelectCertificate {
+    param(
+        $CnOrThumbprint = ""
+    )
+
+    $possible = Get-ChildItem Cert:\CurrentUser\My
+    if ($CnOrThumbprint -ne "") {
+        $possible = $possible | Where-Object { $_.Subject -match $CnOrThumbprint -or ($_.Thumbprint -match $CnOrThumbprint)}
+    }
+    if ($possible.Count -eq 0) {
+        $possible = Get-ChildItem Cert:\CurrentUser\My
+    }
+    if ($possible.Count -eq 0) {
+        return $null
+    }
+    if ($possible.Count -eq 1) {
+        return $possible[0]
+    }
+
+    $msg = ""
+    while($true) {
+        $nr = 0
+        Clear-Host
+        foreach($p in $possible) 
+        {
+            Write-Host ($nr+1) -ForegroundColor Yellow -NoNewline
+            $sub = $p.Subject
+            if ($sub.Length -lt 30) {
+                $sub += (" ") * (40 - $sub.Length)
+            }
+            if ($sub.ToUpper().StartsWith("CN=")) {
+                $sub = $sub.SubString(3)
+            }
+            Write-Host ". $($sub)" -NoNewline
+            Write-Host " $($p.Thumbprint)" -ForegroundColor Gray
+            $nr++
+        }
+        if ($msg -ne "") {
+            Write-Host "`n$msg" -ForegroundColor Red
+        }
+        Write-Host "`nNr. eingeben, Text fuer Filterung, keine Eingabe fuer Abbruch: " -NoNewline
+        $e = Read-Host 
+        $nr = -1
+        if ([int]::TryParse($e, [Ref] $nr)) {
+            if ($nr -gt 0 -and ($nr -le $possible.Count)) {
+                return $possible[$nr - 1]
+            }
+            else {
+                $msg = "Ungueltige Nummer"
+            }
+        }
+        else {
+            if ($e -ne "") {
+                $possible = $possible | Where-Object { $_.Subject -match $e -or ($_.Thumbprint -match $e)}
+                if ($possible.Count -eq 0) {
+                    $possible = Get-ChildItem Cert:\CurrentUser\My
+                }
+                if ($possible.Count -eq 1) {
+                    return $possible[0]
+                }
+            }
+            else {
+                return $null
+            }
+        }
+    }
+}
+
+function PfxFileSelect {
+    param(
+        $folder = ""
+    )
+
+    if ($folder -eq "") {
+        $folder = FolderSelect
+    }
+    if ($folder -eq "" -or $folder -eq $null) {
+        Write-Host "Kein oder ungueltiger Ordner! Abbruch" -ForegroundColor Red
+        return $null
+    }
+    $fullFolder = (Join-Path $folder "*.pfx")
+    $filesAll = Get-ChildItem $fullFolder
+    if ($filesAll.Count -eq 0) {
+        Write-Host "Keine .pfx Dateien im angegebenen Ordner! Abbruch" -ForegroundColor Red
+        return $null
+    }
+    $files = $filesAll.Clone()
+
+    $msg = ""
+    while($true) {
+        $nr = 0
+        Clear-Host
+        foreach($f in $files) 
+        {
+            Write-Host ($nr+1) -ForegroundColor Yellow -NoNewline
+            $sub = $f.Name
+            if ($sub.Length -lt 40) {
+                $sub += (" ") * (40 - $sub.Length)
+            }
+            if ($sub.ToUpper().StartsWith("CN=")) {
+                $sub = $sub.SubString(3)
+            }
+            Write-Host ". $($sub)" -NoNewline
+            Write-Host " $($f.LastWriteTime.ToString("dd.MM.yyyy hh:mm:ss"))" -ForegroundColor Gray
+            $nr++
+        }
+        if ($msg -ne "") {
+            Write-Host "`n$msg" -ForegroundColor Red
+        }
+        Write-Host "`nNr. eingeben, Text fuer Filterung, keine Eingabe fuer Abbruch: " -NoNewline
+        $e = Read-Host 
+        $nr = -1
+        if ([int]::TryParse($e, [Ref] $nr)) {
+            if ($nr -gt 0 -and ($nr -le $files.Count)) {
+                return $files[$nr - 1].FullName
+            }
+            else {
+                $msg = "Ungueltige Nummer"
+            }
+        }
+        else {
+            if ($e -ne "") {
+                $files = $files | Where-Object { $_.Name -match $e }
+                if ($files.Count -eq 0) {
+                    $files = $filesAll.Clone()
+                }
+                if ($files.Count -eq 1) {
+                    return $files.FullName
+                }
+            }
+            else {
+                return $null
+            }
+        }
+    }
+}
+function FolderSelect {
+    param(
+    
+    )
+
+    $homedir = [System.Environment]::GetFolderPath(40)
+    $dl = Join-Path $homedir "Downloads"
+    $certpath = Join-Path $homedir "Zertifikate"
+    if (!(Test-Path $certpath)) {
+        New-Item -ItemType Directory -Path $certpath -Force
+    }
+    $foldersAll = @(
+        $certpath,
+        $dl,
+        [System.Environment]::GetFolderPath(16),
+        [System.Environment]::GetFolderPath(5),
+        $homedir
+    )
+    $foldersAll = $foldersAll | Where-Object { $_ -ne "" }
+    $folders = $foldersAll.Clone()
+
+    $msg = ""
+    while($true) {
+        $nr = 0
+        Clear-Host
+        foreach($f in $folders) 
+        {
+            Write-Host ($nr+1) -ForegroundColor Yellow -NoNewline
+            $sub = $f
+            if ($sub.Length -lt 40) {
+                $sub += (" ") * (40 - $sub.Length)
+            }
+            Write-Host ". $($sub)" -NoNewline
+            $files = (Get-ChildItem (Join-Path $f "*.pfx"))
+
+            Write-Host " $($files.count) .pfx Datei(en)" -ForegroundColor Gray
+            $nr++
+        }
+        if ($msg -ne "") {
+            Write-Host "`n$msg" -ForegroundColor Red
+        }
+        Write-Host "`nNr. eingeben, Text fuer Filterung, keine Eingabe fuer Abbruch: " -NoNewline
+        $e = Read-Host 
+        $nr = -1
+        if ([int]::TryParse($e, [Ref] $nr)) {
+            if ($nr -gt 0 -and ($nr -le $folders.Count)) {
+                return $folders[$nr - 1]
+            }
+            else {
+                $msg = "Ungueltige Nummer"
+            }
+        }
+        else {
+            if ($e -ne "") {
+                $folders = $folders | Where-Object { $_ -match $e }
+                if ($folders.Count -eq 0) {
+                    $folders = $foldersAll.Clone()
+                }
+                if ($folders.Count -eq 1) {
+                    if ($folders -is [Object[]]) {
+                        return $folders[0]
+                    }
+                    else
+                    {
+                        return $folders
+                    }
+                }
+            }
+            else {
+                return $null
+            }
+        }
+    }
+}
+# Suportis Crypto Script V1.5 -END-
