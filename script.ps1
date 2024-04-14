@@ -1,4 +1,4 @@
-# Suportis Crypto Script V1.5 -START-
+# Suportis Crypto Script V1.6 -START-
 
 function Sup-CreateCertificate {
     [CmdletBinding()]
@@ -129,7 +129,7 @@ function Sup-ImportCertificate {
             $Global:cert = Get-PfxCertificate -FilePath $Filename -Password $pwd
         }
         else {
-            Import-PfxCertificate -FilePath $Filename Cert:\CurrentUser\My\ -Password $pwd
+            $Global:cert = Import-PfxCertificate -FilePath $Filename Cert:\CurrentUser\My\ -Password $pwd
         }
     }
     catch {
@@ -147,27 +147,29 @@ function Sup-Encrpyt {
         [Switch] $Copy
     )
 
-    if ($Global:cert -ne $null) {
-        $cert = $Global:cert
-        if (!($IsMac)) {
-            if (!(Test-Path "Cert:\CurrentUser\My\$($cert.Thumbprint)")) {
-                $cert = $null
-                $Global:cert = $null
+    if ($Filename -eq "") {
+        if ($Global:cert -ne $null) {
+            $cert = $Global:cert
+            if (!($IsMac)) {
+                if (!(Test-Path "Cert:\CurrentUser\My\$($cert.Thumbprint)")) {
+                    $cert = $null
+                    $Global:cert = $null
+                }
             }
         }
-    }
-    if ($Global:cert -ne $null) {
-        Write-Host "Soll das Zertifikat " -NoNewline
-        $sub = $Global:cert.Subject
-        if ($sub.ToUpper().StartsWith("CN=")) {
-            $sub = $sub.SubString(3)
-        }
-        Write-Host $sub -ForegroundColor Yellow -NoNewline
-        Write-Host " verwendet werden? (J/n): " -NoNewline
-        $e = Read-Host
-        if ($e -eq "N") {
-            $Global:cert = $null
-            $cert = $null
+        if ($Global:cert -ne $null) {
+            Write-Host "Soll das Zertifikat " -NoNewline
+            $sub = $Global:cert.Subject
+            if ($sub.ToUpper().StartsWith("CN=")) {
+                $sub = $sub.SubString(3)
+            }
+            Write-Host $sub -ForegroundColor Yellow -NoNewline
+            Write-Host " verwendet werden? (J/n): " -NoNewline
+            $e = Read-Host
+            if ($e -eq "N") {
+                $Global:cert = $null
+                $cert = $null
+            }
         }
     }
     if ($IsMacOS) {
@@ -227,6 +229,9 @@ function Sup-Encrpyt {
         }
     }
     else {
+        if ($Filename -ne "") {
+            Sup-ImportCertificate -Filename $Filename
+        }
         if ($Global:cert -eq $null) {
             $cert = SelectCertificate $CnOrThumbprint
         }
@@ -279,19 +284,25 @@ function Sup-Decrpyt {
     )
 
     if ($IsMacOS) {
-        if (!($Global:cert -eq $null)) {
-        Write-Host "Soll das Zertifikat " -NoNewline
-        $sub = $Global:cert.Subject
-        if ($sub.ToUpper().StartsWith("CN=")) {
-            $sub = $sub.SubString(3)
+        if ($Filename -eq "") {
+            if (!($Global:cert -eq $null)) {
+                Write-Host "Soll das Zertifikat " -NoNewline
+                $sub = $Global:cert.Subject
+                if ($sub.ToUpper().StartsWith("CN=")) {
+                    $sub = $sub.SubString(3)
+                }
+                Write-Host $sub -ForegroundColor Yellow -NoNewline
+                Write-Host " verwendet werden? (J/n): " -NoNewline
+                $e = Read-Host
+                if ($e -eq "N") {
+                    $Global:cert = $null
+                    $cert = $null
+                }
+            }
         }
-        Write-Host $sub -ForegroundColor Yellow -NoNewline
-        Write-Host " verwendet werden? (J/n): " -NoNewline
-        $e = Read-Host
-        if ($e -eq "N") {
+        else {
             $Global:cert = $null
             $cert = $null
-        }
         }
 
         if ($Global:cert -eq $null) {
@@ -418,6 +429,245 @@ function Sup-RemoveCertificate {
     }
 }
 
+function Sup-ListExports {
+    [CmdletBinding()]
+    [Alias("listexp", "explist")]
+    param(
+    
+    )
+    $homedir = [System.Environment]::GetFolderPath(40)
+    $dl = Join-Path $homedir "Downloads"
+    $certpath = Join-Path $homedir "Zertifikate"
+    if (!(Test-Path $certpath)) {
+        New-Item -ItemType Directory -Path $certpath -Force
+    }
+    $folders = @(
+        $certpath,
+        $dl,
+        [System.Environment]::GetFolderPath(16),
+        [System.Environment]::GetFolderPath(5),
+        $homedir
+    )
+    $folders = $folders | Where-Object { $_ -ne "" }
+    $fileList = @()
+    foreach($folder in $folders) {
+        $files = Get-ChildItem (Join-Path $folder "*.pfx")
+        if ($files.Count -gt 0) {
+            $fileList += $files
+        }
+    }
+    $fileList = $fileList | Sort-Object LastWriteTime -Descending
+    if ($fileList -isnot [object[]]) {
+        $fileList = @($fileList)
+    }
+    $fileListAll = $fileList.Clone()
+
+    $msg = ""
+    $selectedFile = $null
+    while($true) {
+        $nr = 0
+        Clear-Host
+        foreach($f in $fileList) 
+        {
+            if ($nr % 2 -eq 0) {
+                Write-Host ($nr+1) -ForegroundColor Yellow -NoNewline
+            }
+            else {
+                Write-Host ($nr+1) -ForegroundColor DarkYellow -NoNewline -BackgroundColor DarkGray
+            }
+            $sub = $f.Name
+            if ($sub.Length -lt 30) {
+                $sub += (" ") * (30 - $sub.Length)
+            }
+            if ($nr % 2 -eq 0) {
+                Write-Host ". $($sub)" -NoNewline
+            }
+            else {
+                Write-Host ". $($sub)" -NoNewline -ForegroundColor Black -BackgroundColor DarkGray 
+            }
+            $diff = [DateTime]::Now - $f.LastWriteTime
+            $diff = [DateTime]::Now - $f.LastWriteTime
+            if ($diff.TotalHours -ge 24) {
+                if ($diff.Days -eq 0) {
+                    $diffFormatted = "heute"
+                } elseif ($diff.Days -eq 1) {
+                    $diffFormatted = "gestern"
+                } else {
+                    if ($diff.Days -le 7) {
+                        $diffFormatted = "vor $($diff.Days) Tagen"
+                    }
+                    else {
+                        $diffFormatted = $f.LastWriteTime("dd.MM.yyyy")
+                    }
+                }
+                $diffFormatted += " um $($f.LastWriteTime.ToString("HH:mm:ss"))"
+            } elseif ($diff.TotalHours -ge 1) {
+                $diffFormatted = "vor $($diff.Hours) Stunden"
+            } elseif ($diff.TotalMinutes -ge 1) {
+                $diffFormatted = "vor $($diff.Minutes) Minuten"
+            } else {
+                $diffFormatted = "vor wenigen Sekunden"
+            }
+
+            if ($diffFormatted.Length -lt 27) {
+                $diffFormatted += (" ") * (27 - $diffFormatted.Length)
+            }
+            if ($nr % 2 -eq 0) {
+                Write-Host $diffFormatted -ForegroundColor Gray -NoNewline
+                Write-Host " in $($f.Directory.FullName)"
+            }
+            else 
+            {
+                Write-Host $diffFormatted -ForegroundColor Black -NoNewline -BackgroundColor DarkGray
+                Write-Host " in $($f.Directory.FullName)" -ForegroundColor Black -BackgroundColor DarkGray
+            }
+            $nr++
+        }
+        if ($msg -ne "") {
+            Write-Host "`n$msg" -ForegroundColor Red
+        }
+        Write-Host "`nNr. eingeben, Text fuer Filterung, keine Eingabe fuer Abbruch: " -NoNewline
+        $e = Read-Host 
+        $nr = -1
+        if ([int]::TryParse($e, [Ref] $nr)) {
+            if ($nr -gt 0 -and ($nr -le $fileList.Count)) {
+                $selectedFile = $fileList[$nr - 1]
+                break
+            }
+            else {
+                $msg = "Ungueltige Nummer"
+            }
+        }
+        else {
+            if ($e -ne "") {
+                $fileList = $fileList | Where-Object { $_ -match $e }
+                if ($fileList.Count -eq 0) {
+                    $fileList = $fileListAll.Clone()
+                }
+                if ($fileList.Count -eq 1) {
+                    if ($fileList -is [Object[]]) {
+                        return $fileList[0]
+                    }
+                    else
+                    {
+                        return $fileList
+                    }
+                }
+            }
+            else {
+                return $null
+            }
+        }
+    }
+    if ($selectedFile -eq $null) {
+        return $null
+    }
+
+    $msg = ""
+    [System.ConsoleColor] $color = 'Red'
+    while($true) {
+        Clear-Host
+        Write-Host "Export-Datei: $($selectedFile.Name)"
+        Write-Host "Vom Ordner  : $($selectedFile.Directory.FullName)"
+        Write-Host
+        Write-Host "Optionen:"
+        if ($IsMacOS)  {
+            Write-Host "X/O/F" -ForegroundColor Yellow -NoNewline
+            Write-Host ": Ordner im Finder oeffnen"
+        }
+        else {
+            Write-Host "X/O  " -ForegroundColor Yellow -NoNewline
+            Write-Host ": Ordner im Explorer oeffnen"
+        }
+
+
+
+        Write-Host "I    " -ForegroundColor Yellow -NoNewline
+        Write-Host ": Importieren"
+
+        Write-Host "D    " -ForegroundColor Yellow -NoNewline
+        Write-Host ": Loeschen (delete)"
+
+        if ($IsMacOS) {
+            Write-Host "E    " -ForegroundColor Yellow -NoNewline
+            Write-Host ": Entschluesseln"
+        }
+
+        if ($IsMacOS) {
+            Write-Host "V    " -ForegroundColor Yellow -NoNewline
+            Write-Host ": Verschluesseln"
+        }
+        else {
+            Write-Host "V    " -ForegroundColor Yellow -NoNewline
+            Write-Host ": Verschluesseln (mit vorherigem Import)"
+        }
+
+        Write-Host "C    " -ForegroundColor Yellow -NoNewline
+        Write-Host ": Dateipfad kopieren"
+
+        Write-Host "Keine Eingabe: Abbruch"
+
+        Write-Host
+        if ($msg -ne "") {
+            Write-Host "`n$($msg)" -ForegroundColor $color
+        }
+        $e = Read-Host "Option"
+        if ($e -eq "") {
+            return
+        }
+        if ($e -eq "X" -or $e -eq "O" -or $e -eq "F") {
+            Invoke-Item $selectedFile.Directory.FullName
+            if ($IsMacOS) {
+                $msg = "Finder geoeffnet"
+            }
+            else {
+                $msg = "Explorer geoeffnet"
+            }
+            $color = 'Green'
+        }
+        elseif ($e -eq "I") {
+           Sup-ImportCertificate -Filename $selectedFile.FullName 
+           $msg = "Importvorgang ausgeloest/abgeschlossen"
+           $color = 'Green'
+        }
+        elseif ($e -eq "D") {
+            # Delete
+            Write-Host "Datei " -NoNewline
+            Write-Host $selectedFile.FullName -ForegroundColor Yellow -NoNewline
+            Write-Host " wirklich loeschen? (j/N):"
+            $e = Read-Host
+            if ($e -eq "J") {
+                Remove-Item $selectedFile
+                Write-Host "Datei geloescht" -ForegroundColor Green
+                return
+            }
+        }
+        elseif ($e -eq "E" -and $IsMacOS) {
+            # Entschlüsseln (nur Mac)
+            Sup-Decrpyt -Filename $selectedFile.FullName
+            $msg = "Entschluesselung abgeschlossen"
+            $color = 'Green'
+        }
+        elseif ($e -eq "V") {
+            # Verschlüsseln
+            Sup-Encrpyt -Filename $selectedFile.FullName
+            $msg = "Verschluesselung abgeschlossen"
+            $color = 'Green'
+        }
+        elseif ($e -eq "C") {
+            # Copy Path
+            Set-Clipboard $selectedFile.FullName
+            $msg = "Vollstaendiger Pfad in die Zwischenablage kopiert"
+            $color = 'Green'
+        }
+        else {
+            $msg = "Ungueltige Eingabe"
+            $color = 'Red'
+        }
+    }
+
+
+}
 function Sup-Install {
     [CmdletBinding()]
     [Alias("instzert", "zertinst")]
@@ -811,4 +1061,4 @@ function FolderSelect {
         }
     }
 }
-# Suportis Crypto Script V1.5 -END-
+# Suportis Crypto Script V1.6 -END-
