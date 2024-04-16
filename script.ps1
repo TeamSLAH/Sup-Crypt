@@ -1,4 +1,4 @@
-$SUPVERSION = "1.11"
+$SUPVERSION = "1.12"
 function Sup-Version {
     Write-Host $SUPVERSION
 }
@@ -995,7 +995,7 @@ function CopyStringPart {
 
     $list = @()
     $arr = $text.Split("`n")
-    $maxL = 0
+    $maxL = -1
     foreach($z in $arr) {
         if ($z.Contains(":")) {
             $dp = $z.IndexOf(":")
@@ -1020,7 +1020,9 @@ function CopyStringPart {
             }
         }
     }
-    $maxL += 2
+    if ($maxL -gt -1) {
+        $maxL += 2
+    }
     
     if ($list.Count -eq 1) {
         Set-Clipboard $list[0].Pass
@@ -1046,10 +1048,16 @@ function CopyStringPart {
         for($nr = 0; $nr -lt $list.Count; $nr++)
         {
             $pw = $list[$nr].Pass
-            $pw += (" "*($MaxL - $pw.Length))
-            Write-Host "$($nr + 1)" -ForegroundColor Yellow -NoNewline
-            Write-Host ". $pw" -NoNewline
-            Write-Host " ($($list[$nr].Desc))" -ForegroundColor Blue
+            if ($MaxL -gt -1) {
+                $pw += (" "*($MaxL - $pw.Length))
+                Write-Host "$($nr + 1)" -ForegroundColor Yellow -NoNewline
+                Write-Host ". $pw" -NoNewline
+                Write-Host " ($($list[$nr].Desc))" -ForegroundColor Blue
+            }
+            else {
+                Write-Host "$($nr + 1)" -ForegroundColor Yellow -NoNewline
+                Write-Host ". $pw" 
+            }
         }
         Write-Host
         Write-Host "Zum kopieren: " -NoNewline
@@ -1077,7 +1085,7 @@ function CopyStringPart {
         if ([int]::TryParse($e, [Ref] $nr)) {
             if ($nr -gt 0 -and $nr -le $list.Count) {
                 Set-Clipboard $list[$nr-1].Pass
-                $msg = "$($list[$nr-1]) in Zwischenablage kopiert"
+                $msg = "$($list[$nr-1].Pass) in Zwischenablage kopiert"
             }
             else {
                 $msg = "Ungültige Nummer"
