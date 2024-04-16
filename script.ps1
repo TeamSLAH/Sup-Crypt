@@ -1048,7 +1048,7 @@ function CopyStringPart {
         for($nr = 0; $nr -lt $list.Count; $nr++)
         {
             $pw = $list[$nr].Pass
-            if ($MaxL -gt -1) {
+            if ($MaxL -gt -1 -and $list[$nr].Desc -ne "") {
                 $pw += (" "*($MaxL - $pw.Length))
                 Write-Host "$($nr + 1)" -ForegroundColor Yellow -NoNewline
                 Write-Host ". $pw" -NoNewline
