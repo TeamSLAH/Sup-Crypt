@@ -14,7 +14,7 @@ function Sup-Install {
     else {
         $code = $code.Split("`n")
     }
-    $scpath = (Resolve-Path "~/sup-crypt.ps1").Path
+    $scpath = (Join-Path (Resolve-Path "~") "sup-crypt.ps1")
     if (Test-Path ~/sup-crypt.ps1) {
         Set-Content -Path $scpath -Value $code
         return
