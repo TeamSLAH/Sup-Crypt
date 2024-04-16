@@ -1097,4 +1097,7 @@ function CopyStringPart {
         }
     }
 }
+function XXABC {
+    Write-Host "Jaja"
+}
 # Suportis Crypto Script V1.8 -END-
