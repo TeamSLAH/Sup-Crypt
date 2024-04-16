@@ -1,4 +1,4 @@
-# Suportis Crypto Script V1.6 -START-
+# Suportis Crypto Script V1.7 -START-
 
 function Sup-CreateCertificate {
     [CmdletBinding()]
@@ -337,23 +337,7 @@ function Sup-Decrpyt {
         }
         try {
             $out = Unprotect-CmsMessage -Content (Get-Clipboard -Raw) -To $Global:cert
-            Write-Host "Entschluesselter Text:"
-            Write-Host $out -ForegroundColor Yellow
-            Write-Host "Text entschluesselt, entschluesselter Text in die Zwischenablage kopiert" -ForegroundColor Green
-            if (!($Copy)) {
-                $e = Read-Host "Soll der entschluesselte Text in die Zwischenablage kopiert werden? (J/n)"
-                if ($e -ne "N") {
-                    $Copy = $true
-                }
-            }
-            if ($Copy) {
-                Write-Host "Entschluesselter Text in die Zwischenablage kopiert" -ForegroundColor Green
-                Set-Clipboard $out
-            }
-            else {
-                Write-Host "Zwischenablage geleert" -ForegroundColor Gray
-                Set-Clipboard "-"
-            }
+            CopyStringPart $out
         }
         catch {
             Write-Host "Fehler beim entschluesseln!" -ForegroundColor Red
@@ -365,23 +349,7 @@ function Sup-Decrpyt {
         }
         try {
             $out = Unprotect-CmsMessage -Content (Get-Clipboard -Raw)
-            Write-Host "Entschluesselter Text:"
-            Write-Host $out -ForegroundColor Yellow
-            Write-Host "Text verschluesselt, verschluesselter Text in die Zwischenablage kopiert" -ForegroundColor Green
-            if (!($Copy)) {
-                $e = Read-Host "Soll der entschluesselte Text in die Zwischenablage kopiert werden? (J/n)"
-                if ($e -ne "N") {
-                    $Copy = $true
-                }
-            }
-            if ($Copy) {
-                Write-Host "Entschluesselter Text in die Zwischenablage kopiert" -ForegroundColor Green
-                Set-Clipboard $out
-            }
-            else {
-                Write-Host "Zwischenablage geleert" -ForegroundColor Gray
-                Set-Clipboard "-"
-            }
+            CopyStringPart $out
         }
         catch {
             Write-Host "Fehler beim entschluesseln!" -ForegroundColor Red
@@ -667,53 +635,6 @@ function Sup-ListExports {
     }
 
 
-}
-function Sup-Install {
-    [CmdletBinding()]
-    [Alias("instzert", "zertinst")]
-    param(
-
-    )
-    Write-Host "Skript in die Zwischenablage kopieren und Enter druecken"
-    Read-Host
-    $f = $profile
-
-    if (!(Test-Path $f)) {
-        New-Item $f -Force
-    }
-    $content = Get-Content -Path $f
-    $newContent = @()
-    $inscript=$false
-    $installed = $false
-    foreach($row in $content) {
-        if ($row.StartsWith("# Suportis Crypto Script")) {
-            if ($row.EndsWith("-START-")) {
-                $inscript=$true
-            }
-            elseif ($row.EndsWith("-END-")) {
-                $inscript = $false
-                $clip = Get-Clipboard
-                foreach($row in $clip) {
-                    $newContent += $row
-                }
-                $installed = $true
-                continue
-            }
-        }
-        if (!($inscript)) {
-            $newContent += $row
-        }
-    }
-    if (!($installed)) {
-        $clip = Get-Clipboard
-        foreach($row in $clip) {
-            $newContent += $row
-        }
-    }
-
-
-    Set-Content -Path $f -Value $newContent
-    Write-Host "Suportis Crypto Script installiert/upgedatet" -ForegroundColor Green
 }
 # Hilfsfunktionen
 
@@ -1061,4 +982,112 @@ function FolderSelect {
         }
     }
 }
-# Suportis Crypto Script V1.6 -END-
+
+function CopyStringPart {
+    param(
+        $text = ""
+    )
+    if ($text -eq "") {
+        $text = (Get-Clipboard -Raw)
+    }
+
+    $list = @()
+    $arr = $text.Split("`n")
+    $maxL = 0
+    foreach($z in $arr) {
+        if ($z.Contains(":")) {
+            $dp = $z.IndexOf(":")
+            $pw = $z.SubString($dp+1).Trim()
+            if ($pw.Length -gt $maxL) {
+                $maxL = $pw.Length
+            }
+            $desc = $z.SubString(0, $dp).Trim()
+            $item = [PSCustomObject]@{
+                Desc = $desc
+                Pass = $pw
+            }
+            $list += $item
+        }
+        else {
+            if ($z.Trim() -ne "") {
+                $item = [PSCustomObject]@{
+                    Desc = ""
+                    Pass = $z.Trim()
+                }
+                $list += $item
+            }
+        }
+    }
+    $maxL += 2
+    
+    if ($list.Count -eq 1) {
+        Set-Clipboard $list[0].Pass
+        Write-Host $list[0].Pass -NoNewline -ForegroundColor Red
+        Write-Host " ($($list[0].Desc))" -NoNewline -ForegroundColor Blue
+        Write-Host " in die Zwischenablage kopiert."
+        Write-Host "Enter um diese wieder zu leeren (- um Zwischenableg nicht zu leeren): "
+        $e = Read-Host
+        if ($e -ne "-") {
+            Set-Clipboard "-"
+        }
+        return
+    }
+    $nr = 0
+    $msg=""
+    while($true) {
+        Clear-Host
+        Write-Host "Alles (" -NoNewline
+        Write-Host "*" -NoNewline -ForegroundColor Yellow
+        Write-Host ")"
+        Write-Host $text -ForegroundColor Blue
+        Write-Host "--------------------------------------------------------------------------------"
+        for($nr = 0; $nr -lt $list.Count; $nr++)
+        {
+            $pw = $list[$nr].Pass
+            $pw += (" "*($MaxL - $pw.Length))
+            Write-Host "$($nr + 1)" -ForegroundColor Yellow -NoNewline
+            Write-Host ". $pw" -NoNewline
+            Write-Host " ($($list[$nr].Desc))" -ForegroundColor Blue
+        }
+        Write-Host
+        Write-Host "Zum kopieren: " -NoNewline
+        Write-Host "Nr." -NoNewline -ForegroundColor Yellow
+        Write-Host " eingeben oder " -NoNewline
+        Write-Host "*" -NoNewline -ForegroundColor Yellow
+        Write-Host " für alles"
+        Write-Host "Keine Eingabe: Auswahl für kopieren beenden (und Zwischenablage leeren)"
+        Write-Host "-" -ForegroundColor Yellow -NoNewline
+        Write-Host " um Zwischenablage nicht zu leeren"
+        Write-Host
+        if ($msg -ne "") {
+            Write-Host $msg -ForegroundColor Red
+        }
+        $msg=""
+        $e = Read-Host "Nr, * oder keine Eingabe"
+        if ($e -eq "") {
+            Set-Clipboard "-"
+            return
+        }
+        if ($e -eq "-") {
+            return
+        }
+        $nr = -1
+        if ([int]::TryParse($e, [Ref] $nr)) {
+            if ($nr -gt 0 -and $nr -le $list.Count) {
+                Set-Clipboard $list[$nr-1].Pass
+                $msg = "$($list[$nr-1]) in Zwischenablage kopiert"
+            }
+            else {
+                $msg = "Ungültige Nummer"
+            }
+        }
+        elseif ($e -eq "*") {
+            Set-Clipboard $text
+            $msg = "Kompletter Text in Zwischenablage kopiert"
+        }
+        else {
+            $msg = "Ungültige Eingabe!"
+        }
+    }
+}
+# Suportis Crypto Script V1.7 -END-
