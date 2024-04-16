@@ -1,6 +1,4 @@
-# Suportis Crypto Script V1.9 -START-
-
-$SUPVERSION = "1.10"
+$SUPVERSION = "1.11"
 function Sup-Version {
     Write-Host $SUPVERSION
 }
@@ -129,12 +127,13 @@ function Sup-ImportCertificate {
         return
     }
     
-    $pwd = Read-Host "Passwort" -AsSecureString
     try {
         if ($IsMacOS) {
-            $Global:cert = Get-PfxCertificate -FilePath $Filename -Password $pwd
+            security import "$Filename" -k ~/Library/Keychains/login.keychain
+            # $Global:cert = Get-PfxCertificate -FilePath $Filename -Password $pwd
         }
         else {
+            $pwd = Read-Host "Passwort" -AsSecureString
             $Global:cert = Import-PfxCertificate -FilePath $Filename Cert:\CurrentUser\My\ -Password $pwd
         }
     }
@@ -153,58 +152,12 @@ function Sup-Encrpyt {
         [Switch] $Copy
     )
 
-    if ($Filename -eq "") {
-        if ($Global:cert -ne $null) {
-            $cert = $Global:cert
-            if (!($IsMac)) {
-                if (!(Test-Path "Cert:\CurrentUser\My\$($cert.Thumbprint)")) {
-                    $cert = $null
-                    $Global:cert = $null
-                }
-            }
-        }
-        if ($Global:cert -ne $null) {
-            Write-Host "Soll das Zertifikat " -NoNewline
-            $sub = $Global:cert.Subject
-            if ($sub.ToUpper().StartsWith("CN=")) {
-                $sub = $sub.SubString(3)
-            }
-            Write-Host $sub -ForegroundColor Yellow -NoNewline
-            Write-Host " verwendet werden? (J/n): " -NoNewline
-            $e = Read-Host
-            if ($e -eq "N") {
-                $Global:cert = $null
-                $cert = $null
-            }
-        }
-    }
     if ($IsMacOS) {
-        if ($Global:cert -eq $null) {
-            if ($Filename -eq "") {
-                $Filename = PfxFileSelect
-                if ($Filename -eq $null) {
-                    return
-                }
-            }
-            if ($Filename -eq "") {
-                Write-Host "Es wird der Standard-Dateiname " -NoNewline
-                Write-Host "cert.pfx" -ForegroundColor Yellow -NoNewline
-                Write-Host " verwendet"
-                $Filename = "cert.pfx"
-            }
-            if (!(Test-Path $Filename)) {
-                Write-Host "Zertifikat-Datei " -NoNewline -ForegroundColor Red
-                Write-Host $Filename -NoNewline -ForegroundColor Yellow
-                Write-Host " nicht gefunden! Abbruch" -ForegroundColor Red
-                return
-            }
-            if ($Global:cert -eq $null) {
+        $CnOrThumbprint = SelectCertificate -CnOrThumbprint $CnOrThumbprint
+        if ($Filename -ne "") {
+            if (Test-Path $Filename) {
                 Sup-ImportCertificate -Filename $Filename
             }
-        }
-        if ($Global:cert -eq $null) {
-            Write-Host "Kein Zertifikat für Verschlüsselung gewählt! Abbruch" -ForegroundColor Red
-            return
         }
 
         $e = Read-Host "Zu verschluesselnden Text (Enter=aus der Zwischenablage)"
@@ -212,7 +165,7 @@ function Sup-Encrpyt {
             $e = (Get-Clipboard -Raw)
         }
         try {
-            $out = Protect-CmsMessage -Content $e -To $Global:cert
+            $out = Protect-CmsMessage -Content $e -To $CnOrThumbprint
             Write-Host $out -ForegroundColor Yellow
             Write-Host "Text verschluesselt" -ForegroundColor Green
             if (!($Copy)) {
@@ -235,44 +188,69 @@ function Sup-Encrpyt {
         }
     }
     else {
-        if ($Filename -ne "") {
-            Sup-ImportCertificate -Filename $Filename
-        }
-        if ($Global:cert -eq $null) {
-            $cert = SelectCertificate $CnOrThumbprint
-        }
-        else {
-            $cert = $Global:cert
-        }
-        if ($cert -eq $null) {
-            Write-Host "Kein gueltiges Zertifikat gefunden! Abbruch" -ForegroundColor Red
-            return
-        }
-        $e = Read-Host "Zu verschluesselnden Text (Enter=aus der Zwischenablage)"
-        if ($e -eq "") {
-            $e = (Get-Clipboard -Raw)
-        }
-        try {
-            $out = Protect-CmsMessage -Content $e -to $cert.Subject
-            Write-Host $out -ForegroundColor Yellow
-            Write-Host "Text verschluesselt, verschluesselter Text in die Zwischenablage kopiert" -ForegroundColor Green
-            if (!($Copy)) {
-                $e = Read-Host "Soll der Text des CMS-String in die Zwischenablage kopiert werden? (J/n)"
-                if ($e -ne "N") {
-                    $Copy = $true
+        if ($Filename -eq "") {
+            if ($Global:cert -ne $null) {
+                $cert = $Global:cert
+                if (!($IsMac)) {
+                    if (!(Test-Path "Cert:\CurrentUser\My\$($cert.Thumbprint)")) {
+                        $cert = $null
+                        $Global:cert = $null
+                    }
                 }
             }
-            if ($Copy) {
-                Write-Host "CMS-String in die Zwischenablage kopiert" -ForegroundColor Green
-                Set-Clipboard $out
+            if ($Global:cert -ne $null) {
+                Write-Host "Soll das Zertifikat " -NoNewline
+                $sub = $Global:cert.Subject
+                if ($sub.ToUpper().StartsWith("CN=")) {
+                    $sub = $sub.SubString(3)
+                }
+                Write-Host $sub -ForegroundColor Yellow -NoNewline
+                Write-Host " verwendet werden? (J/n): " -NoNewline
+                $e = Read-Host
+                if ($e -eq "N") {
+                    $Global:cert = $null
+                    $cert = $null
+                }
+            }
+            if ($Filename -ne "") {
+                Sup-ImportCertificate -Filename $Filename
+            }
+            if ($Global:cert -eq $null) {
+                $cert = SelectCertificate $CnOrThumbprint
             }
             else {
-                Write-Host "Zwischenablage geleert" -ForegroundColor Gray
-                Set-Clipboard "-"
+                $cert = $Global:cert
             }
-        }
-        catch {
-            Write-Host "Fehler beim verschluesseln!" -ForegroundColor Red
+            if ($cert -eq $null) {
+                Write-Host "Kein gueltiges Zertifikat gefunden! Abbruch" -ForegroundColor Red
+                return
+            }
+            $e = Read-Host "Zu verschluesselnden Text (Enter=aus der Zwischenablage)"
+            if ($e -eq "") {
+                $e = (Get-Clipboard -Raw)
+            }
+            try {
+                $out = Protect-CmsMessage -Content $e -to $cert.Subject
+                Write-Host $out -ForegroundColor Yellow
+                Write-Host "Text verschluesselt, verschluesselter Text in die Zwischenablage kopiert" -ForegroundColor Green
+                if (!($Copy)) {
+                    $e = Read-Host "Soll der Text des CMS-String in die Zwischenablage kopiert werden? (J/n)"
+                    if ($e -ne "N") {
+                        $Copy = $true
+                    }
+                }
+                if ($Copy) {
+                    Write-Host "CMS-String in die Zwischenablage kopiert" -ForegroundColor Green
+                    Set-Clipboard $out
+                }
+                else {
+                    Write-Host "Zwischenablage geleert" -ForegroundColor Gray
+                    Set-Clipboard "-"
+                }
+            }
+            catch {
+                Write-Host "Fehler beim verschluesseln!" -ForegroundColor Red
+            }
         }
     }
 }
@@ -290,59 +268,11 @@ function Sup-Decrpyt {
     )
 
     if ($IsMacOS) {
-        if ($Filename -eq "") {
-            if (!($Global:cert -eq $null)) {
-                Write-Host "Soll das Zertifikat " -NoNewline
-                $sub = $Global:cert.Subject
-                if ($sub.ToUpper().StartsWith("CN=")) {
-                    $sub = $sub.SubString(3)
-                }
-                Write-Host $sub -ForegroundColor Yellow -NoNewline
-                Write-Host " verwendet werden? (J/n): " -NoNewline
-                $e = Read-Host
-                if ($e -eq "N") {
-                    $Global:cert = $null
-                    $cert = $null
-                }
-            }
-        }
-        else {
-            $Global:cert = $null
-            $cert = $null
-        }
-
-        if ($Global:cert -eq $null) {
-            if ($Filename -eq "") {
-                $Filename = PfxFileSelect
-                if ($Filename -eq $null) {
-                    return
-                }
-            }
-            if ($Filename -eq "") {
-                Write-Host "Es wird der Standard-Dateiname " -NoNewline
-                Write-Host "cert.pfx" -ForegroundColor Yellow -NoNewline
-                Write-Host " verwendet"
-                $Filename = "cert.pfx"
-            }
-            if (!(Test-Path $Filename)) {
-                Write-Host "Zertifikat-Datei " -NoNewline -ForegroundColor Red
-                Write-Host $Filename -NoNewline -ForegroundColor Yellow
-                Write-Host " nicht gefunden! Abbruch" -ForegroundColor Red
-                return
-            }
-            if ($Global:cert -eq $null) {
-                Sup-ImportCertificate -Filename $Filename
-            }
-        }
-        if ($Global:cert -eq $null) {
-            Write-Host "Kein Zertifikat für Verschlüsselung gewählt! Abbruch" -ForegroundColor Red
-            return
-        }
         if (!(IsCMSInClip)) {
             $e = Read-Host "Zu entschluesselnden Text in die Zwischenablage kopieren und Enter druecken."
         }
         try {
-            $out = Unprotect-CmsMessage -Content (Get-Clipboard -Raw) -To $Global:cert
+            $out = Unprotect-CmsMessage -Content (Get-Clipboard -Raw)
             CopyStringPart $out
         }
         catch {
@@ -361,6 +291,20 @@ function Sup-Decrpyt {
             Write-Host "Fehler beim entschluesseln!" -ForegroundColor Red
         }
     }
+}
+function ParseKeychain {
+    $r = security find-identity ~/Library/Keychains/login.keychain
+    $m = $r -match '.*\) (?<Thumbprint>.*) "(?<Subject>.*)"'
+    $list = @()
+    foreach($match in $m) {
+        $g = [regex]::Match($match, '.*\) (?<Thumbprint>.*) "(?<Subject>.*)"').Groups
+        $item = [PSCustomObject]@{
+            Thumbprint = $g["Thumbprint"].Value
+            Subject = $g["Subject"].Value
+        }
+        $list += $item
+    }
+    return $list
 }
 
 function Sup-RemoveCertificate {
@@ -695,45 +639,61 @@ function Zertifikat_ArgumentCompleter {
     )
  
     $posibleItems = @()
-
-    $zertifikate = Get-ChildItem Cert:\CurrentUser\My\
-
-    foreach($zert in $zertifikate) {
-        $sub = $zert.Subject
-        if ($sub -eq $null) {
-            $sub=""
-        }
-        if ($wordToComplete.ToUpper().StartsWith("CN=")) {
-            if ($sub -match "^$($wordToComplete).*") {
-                $item = [PSCustomObject]@{
-                    shortName = $zert.Subject
-                    longName = $zert.Subject
-                    toolTip = "Thumbprint: $($zert.Thumbprint)"
-                }
-                $posibleItems += $item
+    
+    if ($IsMacOS) {
+        $list = ParseKeychain
+        foreach($item in $list) {
+            if ($item.Subject -match "^$($wordToComplete).*") {
+                New-Object System.Management.Automation.CompletionResult (
+                    $item.Subject,
+                    $item.Subject,
+                    "ParameterValue",
+                    $item.Thumbprint
+                )
             }
-        }  
-        else {
-            if ($sub.Length -gt 3) {
-                if ($sub.SubString(3) -match "$($wordToComplete).*" -or ($zert.Thumbprint -match "^$($wordToComplete)")) {
+        }
+
+    }
+    else {
+        $zertifikate = Get-ChildItem Cert:\CurrentUser\My\
+
+        foreach($zert in $zertifikate) {
+            $sub = $zert.Subject
+            if ($sub -eq $null) {
+                $sub=""
+            }
+            if ($wordToComplete.ToUpper().StartsWith("CN=")) {
+                if ($sub -match "^$($wordToComplete).*") {
                     $item = [PSCustomObject]@{
-                        shortName = $zert.Subject.SubString(3)
-                        longName = $zert.Subject.SubString(3)
+                        shortName = $zert.Subject
+                        longName = $zert.Subject
                         toolTip = "Thumbprint: $($zert.Thumbprint)"
                     }
                     $posibleItems += $item
                 }
-            } 
+            }  
+            else {
+                if ($sub.Length -gt 3) {
+                    if ($sub.SubString(3) -match "$($wordToComplete).*" -or ($zert.Thumbprint -match "^$($wordToComplete)")) {
+                        $item = [PSCustomObject]@{
+                            shortName = $zert.Subject.SubString(3)
+                            longName = $zert.Subject.SubString(3)
+                            toolTip = "Thumbprint: $($zert.Thumbprint)"
+                        }
+                        $posibleItems += $item
+                    }
+                } 
+            }
         }
-    }
-    # Auswertung
-    foreach($item in $posibleItems) {
-        New-Object System.Management.Automation.CompletionResult (
-            $item.shortName,
-            $item.longName,
-            "ParameterValue",
-            $item.toolTip
-        )
+        # Auswertung
+        foreach($item in $posibleItems) {
+            New-Object System.Management.Automation.CompletionResult (
+                $item.shortName,
+                $item.longName,
+                "ParameterValue",
+                $item.toolTip
+            )
+        }
     }
 }
 function GetZertifikateFromSubjectOrCN {
@@ -767,19 +727,38 @@ function SelectCertificate {
     param(
         $CnOrThumbprint = ""
     )
-
-    $possible = Get-ChildItem Cert:\CurrentUser\My
-    if ($CnOrThumbprint -ne "") {
-        $possible = $possible | Where-Object { $_.Subject -match $CnOrThumbprint -or ($_.Thumbprint -match $CnOrThumbprint)}
+    if ($IsMacOS) {
+        $possible = ParseKeychain
+        if ($CnOrThumbprint -ne "") {
+            $possible = $possible | Where-Object { $_.Subject -match $CnOrThumbprint -or ($_.Thumbprint -match $CnOrThumbprint)}
+        }
+        if ($possible.Count -eq 0) {
+            $possible = ParseKeychain
+        }
+        if ($possible.Count -eq 0) {
+            return $null
+        }
     }
-    if ($possible.Count -eq 0) {
+    else {
         $possible = Get-ChildItem Cert:\CurrentUser\My
+        if ($CnOrThumbprint -ne "") {
+            $possible = $possible | Where-Object { $_.Subject -match $CnOrThumbprint -or ($_.Thumbprint -match $CnOrThumbprint)}
+        }
+        if ($possible.Count -eq 0) {
+            $possible = Get-ChildItem Cert:\CurrentUser\My
+        }
+        if ($possible.Count -eq 0) {
+            return $null
+        }
     }
-    if ($possible.Count -eq 0) {
-        return $null
-    }
+
     if ($possible.Count -eq 1) {
-        return $possible[0]
+        if ($IsMacOS) {
+            return $possible[0].Subject
+        }
+        else {
+            return $possible[0]
+        }
     }
 
     $msg = ""
@@ -808,7 +787,12 @@ function SelectCertificate {
         $nr = -1
         if ([int]::TryParse($e, [Ref] $nr)) {
             if ($nr -gt 0 -and ($nr -le $possible.Count)) {
-                return $possible[$nr - 1]
+                if ($IsMacOS) {
+                    return $possible[$nr - 1].Subject
+                }
+                else {
+                    return $possible[$nr - 1]
+                }
             }
             else {
                 $msg = "Ungueltige Nummer"
@@ -821,7 +805,12 @@ function SelectCertificate {
                     $possible = Get-ChildItem Cert:\CurrentUser\My
                 }
                 if ($possible.Count -eq 1) {
-                    return $possible[0]
+                    if ($IsMacOS) {
+                        return $possible[0].Subject
+                    }
+                    else {
+                        return $possible[0]
+                    }
                 }
             }
             else {
@@ -1103,4 +1092,3 @@ function CopyStringPart {
         }
     }
 }
-# Suportis Crypto Script V1.9 -END-
