@@ -1,4 +1,4 @@
-# Suportis Crypto Script V1.8 -START-
+# Suportis Crypto Script V1.9 -START-
 
 function Sup-CreateCertificate {
     [CmdletBinding()]
@@ -1097,7 +1097,4 @@ function CopyStringPart {
         }
     }
 }
-function XXABC3 {
-    Write-Host "Jaja"
-}
-# Suportis Crypto Script V1.8 -END-
+# Suportis Crypto Script V1.9 -END-
