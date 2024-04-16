@@ -1,4 +1,4 @@
-# Suportis Crypto Script V1.7 -START-
+# Suportis Crypto Script V1.8 -START-
 
 function Sup-CreateCertificate {
     [CmdletBinding()]
@@ -1097,4 +1097,4 @@ function CopyStringPart {
         }
     }
 }
-# Suportis Crypto Script V1.7 -END-
+# Suportis Crypto Script V1.8 -END-
