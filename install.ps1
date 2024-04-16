@@ -56,3 +56,5 @@ Sup-Install $c
 
 Invoke-Expression $c
 
+Write-Host "Neue Version nun verfügbar!" -ForegroundColor Green
+
