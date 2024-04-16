@@ -53,3 +53,5 @@ function Sup-Install {
 }
 
 Sup-Install $c
+
+. $profile
