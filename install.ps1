@@ -54,4 +54,5 @@ function Sup-Install {
 
 Sup-Install $c
 
-. $profile
+Invoke-Expression $c
+
