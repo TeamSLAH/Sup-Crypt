@@ -14,13 +14,14 @@ function Sup-Install {
     else {
         $code = $code.Split("`n")
     }
+    $scpath = (Resolve-Path "~/sup-crypt.ps1").Path
     if (Test-Path ~/sup-crypt.ps1) {
-        Set-Content ~/sup-crypt.ps1 -Value $code
+        Set-Content -Path $scpath -Value $code
         return
     }
 
-    Set-Content ~/sup-crypt.ps1 -Value $code
-    $code = "# Suportis Crypto Script V -START-`n. ~/sup-crypt-ps1`n# Suportis Crypto Script V -END-`n"
+    Set-Content -Path $scpath -Value $code
+    $code = "# Suportis Crypto Script V -START-`n. $scpath`n# Suportis Crypto Script V -END-`n"
 
     if (!(Test-Path $f)) {
         New-Item $f -Force
