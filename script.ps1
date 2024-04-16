@@ -1,5 +1,11 @@
 # Suportis Crypto Script V1.9 -START-
 
+$SUPVERSION = "1.10"
+function Sup-Version {
+    Write-Host $SUPVERSION
+}
+
+Write-Host "SUP-Crypt Version $SUPVERSION"
 function Sup-CreateCertificate {
     [CmdletBinding()]
     [Alias("zert","zertifikat", "makecert")]
