@@ -54,7 +54,5 @@ function Sup-Install {
 
 Sup-Install $c
 
-Invoke-Expression $c
-
-Write-Host "Neue Version nun verfügbar!" -ForegroundColor Green
+Write-Host "PowerShell neu starten um die neue Version nutzen zu koennen." -ForegroundColor Green
 
