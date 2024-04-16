@@ -1,4 +1,4 @@
-$SUPVERSION = "1.12"
+$SUPVERSION = "1.13"
 function Sup-Version {
     Write-Host $SUPVERSION
 }
@@ -50,6 +50,12 @@ function Sup-ExportCertificate {
         Write-Host "Kein gueltiges Zertifikate gefunden! Abbruch" -ForegroundColor Red
         return
     } 
+    if ($IsMacOS) {
+        Write-Host "Export von Zertifikat $($cert)"
+    }
+    else {
+        Write-Host "Export von Zertigikat $($cert.Subject)"
+    }
 
     if ($Filename -eq "") {
         $folder = FolderSelect
@@ -154,6 +160,12 @@ function Sup-Encrpyt {
 
     if ($IsMacOS) {
         $CnOrThumbprint = SelectCertificate -CnOrThumbprint $CnOrThumbprint
+        if ($CnOrThumbprint -eq "" -or $CnOrThumbprint -eq $null) {
+            Write-Host "Kein Zertifikate gewaehlt! Abbruch" -ForegroundColor Red
+            return
+        }
+        Write-Host "Verschluesselung mit Zertifikat " -NoNewline
+        Write-Host "$($CnOrThumbprint)" -ForegroundColor Yellow
         if ($Filename -ne "") {
             if (Test-Path $Filename) {
                 Sup-ImportCertificate -Filename $Filename
@@ -225,6 +237,8 @@ function Sup-Encrpyt {
                 Write-Host "Kein gueltiges Zertifikat gefunden! Abbruch" -ForegroundColor Red
                 return
             }
+            Write-Host "Verschluesselung mit Zertifikat " -NoNewline
+            Write-Host "$($cert.Subject)" -ForegroundColor Yellow
             $e = Read-Host "Zu verschluesselnden Text (Enter=aus der Zwischenablage)"
             if ($e -eq "") {
                 $e = (Get-Clipboard -Raw)
@@ -443,6 +457,7 @@ function Sup-ListExports {
         }
         if ($msg -ne "") {
             Write-Host "`n$msg" -ForegroundColor Red
+            $msg=""
         }
         Write-Host "`nNr. eingeben, Text fuer Filterung, keine Eingabe fuer Abbruch: " -NoNewline
         $e = Read-Host 
@@ -528,6 +543,7 @@ function Sup-ListExports {
         Write-Host
         if ($msg -ne "") {
             Write-Host "`n$($msg)" -ForegroundColor $color
+            $msg=""
         }
         $e = Read-Host "Option"
         if ($e -eq "") {
@@ -592,6 +608,84 @@ function Sup-Update {
 
     )
     Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/TeamSLAH/Sup-Crypt/main/install.ps1'))
+}
+function Sup-ListCertificates {
+    [CmdletBinding()]
+    [Alias("listzert", "zertlist", "zertlst", "lstzert")]
+    param(
+        [ArgumentCompleter({Zertifikat_ArgumentCompleter @args})]
+        $CnOrThumbprint = ""
+    )
+
+    if ($IsMacOS) {
+        $CnOrThumbprint = SelectCertificate -CnOrThumbprint $CnOrThumbprint
+        if ($CnOrThumbprint -eq "" -or $CnOrThumbprint -eq $null) {
+            Write-Host "Kein Zertifikate gewaehlt! Abbruch" -ForegroundColor Red
+            return
+        }
+        $cert = (ParseKeychain | Where-Object { $_.Subject -eq $CnOrThumbprint })
+    }
+    else {
+        $cert = SelectCertificate $CnOrThumbprint
+        if ($cert -eq $null) {
+            Write-Host "Kein gueltiges Zertifikat gefunden! Abbruch" -ForegroundColor Red
+            return
+        }
+    }
+    $msg=""
+    while($true) {
+        Clear-Host
+        Write-Host "Subject    : " -NoNewline
+        Write-Host $cert.Subject -ForegroundColor Yellow
+        Write-Host "Thumbprint : " -NoNewline
+        Write-Host $cert.Thumbprint -ForegroundColor Yellow
+        Write-Host
+        Write-Host "V" -ForegroundColor Yellow -NoNewline
+        Write-Host ". Verschluesseln mit diesem Zertifikat"
+        Write-Host "E" -ForegroundColor Yellow -NoNewline
+        Write-Host ". Exportieren des Zertifikats"
+        Write-Host "L" -ForegroundColor Yellow -NoNewline
+        Write-Host ". Loeschen des Zertifikats"
+        Write-Host "S" -ForegroundColor Yellow -NoNewline
+        Write-Host ". Subject (Name) kopieren"
+        Write-Host "T" -ForegroundColor Yellow -NoNewline
+        Write-Host ". Thumbprint (Kennung) kopieren"
+        Write-Host "X" -ForegroundColor Yellow -NoNewline
+        Write-Host ". Name / Kennungs Text kopieren"
+        Write-Host
+        if ($msg -ne "") {
+            Write-Host $msg -ForegroundColor Red
+            $msg=""
+        }
+        $e = Read-Host "VELST oder X; Enter = Beenden"
+        if ($e -eq "") {
+            break
+        }
+        if ($e -eq "V") {
+            Sup-Encrpyt -CnOrThumbprint $cert.Subject
+        }
+        elseif ($e -eq "E") {
+            Sup-ExportCertificate -CnOrThumbprint $cert.Subject
+        }
+        elseif ($e -eq "L") {
+            Sup-RemoveCertificate -CnOrThumbprint $cert.Subject
+        }
+        elseif ($e -eq "S") {
+            $msg="$($cert.Subject) kopiert"
+            Set-Clipboard $cert.Subject
+        }
+        elseif ($e -eq "T") {
+            $msg="$($cert.Thumbprint) kopiert"
+            Set-Clipboard $cert.Thumbprint
+        }
+        elseif ($e -eq "X") {
+            Write-Host "Verschluesselt mit $($cert.Subject) ($($cert.Thumbprint)) kopiert"
+            Set-Clipboard "Verschluesselt mit $($cert.Subject) ($($cert.Thumbprint))."
+        }
+        else {
+            $msg = "Ungueltige Eingabe"
+        }
+    }
 }
 # Hilfsfunktionen
 
@@ -781,6 +875,7 @@ function SelectCertificate {
         }
         if ($msg -ne "") {
             Write-Host "`n$msg" -ForegroundColor Red
+            $msg=""
         }
         Write-Host "`nNr. eingeben, Text fuer Filterung, keine Eingabe fuer Abbruch: " -NoNewline
         $e = Read-Host 
@@ -863,6 +958,7 @@ function PfxFileSelect {
         }
         if ($msg -ne "") {
             Write-Host "`n$msg" -ForegroundColor Red
+            $msg=""
         }
         Write-Host "`nNr. eingeben, Text fuer Filterung, keine Eingabe fuer Abbruch, *=anderer Ordner: " -NoNewline
         $e = Read-Host 
@@ -950,6 +1046,7 @@ function FolderSelect {
         }
         if ($msg -ne "") {
             Write-Host "`n$msg" -ForegroundColor Red
+            $msg=""
         }
         Write-Host "`nNr. eingeben, Text fuer Filterung, keine Eingabe fuer Abbruch: " -NoNewline
         $e = Read-Host 
