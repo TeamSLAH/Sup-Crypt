@@ -1,4 +1,4 @@
-$c = Invoke-RestMethod "https://raw.githubusercontent.com/TeamSLAH/Sup-Crypt/main/script.ps1"
+$c = Invoke-RestMethod "https://raw.githubusercontent.com/TeamSLAH/Sup-Crypt/main/script.ps1" -Headers @{"Cache-Control"="no-cache"}
 function Sup-Install {
     [CmdletBinding()]
     [Alias("instzert", "zertinst")]
