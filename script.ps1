@@ -4,6 +4,15 @@ function Sup-Version {
 }
 
 Write-Host "SUP-Crypt Version $SUPVERSION"
+$c = Invoke-RestMethod "https://raw.githubusercontent.com/TeamSLAH/Sup-Crypt/main/version.json"
+if ($c.Version -eq $SUPVERSION) {
+    Write-Host "    Aktuelle Version, es gibt keine Updates"
+}
+else {
+    Write-Host "    Updates Verfügbar auf Version $($c.Version). " -NoNewline
+    Write-Host "Sup-Update" -NoNewline -ForegroundColor Yellow
+    Write-Host " um neuste Version zu installieren."
+}
 function Sup-CreateCertificate {
     [CmdletBinding()]
     [Alias("zert","zertifikat", "makecert")]
