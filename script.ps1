@@ -21,9 +21,9 @@ function Sup-WhatsNew {
     )
 
     $c = Invoke-RestMethod "https://raw.githubusercontent.com/TeamSLAH/Sup-Crypt/main/version.json"
-    Write-Host "Aktuelle Version: " -NoNewline
+    Write-Host "Installierte Version: " -NoNewline
     Write-Host $SUPVERSION -ForegroundColor Red
-    Write-Host "Neuste Version  : " -NoNewline
+    Write-Host "Neuste Version      : " -NoNewline
     Write-Host $c.Version -ForegroundColor Green
     Write-Host
     [int] $major = $SUPVERSION.SubString(0, $SUPVERSION.IndexOf("."))
