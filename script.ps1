@@ -12,9 +12,9 @@ else {
     Write-Host "    Updates Verfügbar auf Version " -NoNewline
     Write-Host "$($c.Version)" -NoNewline -ForegroundColor Red
     Write-Host "."
-    Write-Host " Sup-Update" -NoNewline -ForegroundColor Yellow
+    Write-Host "Sup-Update" -NoNewline -ForegroundColor Yellow
     Write-Host " um neuste Version zu installieren."
-    Write-Host " Sup-WhatsNew" -NoNewline -ForegroundColor Yellow
+    Write-Host "Sup-WhatsNew" -NoNewline -ForegroundColor Yellow
     Write-Host " um Änderungen der neuen Version(en) anzuzeigen."
 }
 function Sup-WhatsNew {
@@ -652,13 +652,13 @@ function Sup-Update {
     param(
 
     )
+    Sup-WhatsNew -ask $false
     if ($IsMacOS) {
         [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/TeamSLAH/Sup-Crypt/main/install.ps1'))
     }
     else {
         Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/TeamSLAH/Sup-Crypt/main/install.ps1'))
     }
-    Sup-WhatsNew -ask $false
 }
 function Sup-ListCertificates {
     [CmdletBinding()]
