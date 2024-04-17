@@ -11,9 +11,11 @@ if ($c.Version -eq $SUPVERSION) {
 else {
     Write-Host "    Updates Verfügbar auf Version " -NoNewline
     Write-Host "$($c.Version)" -NoNewline -ForegroundColor Red
-    Write-Host "." -NoNewline
+    Write-Host "."
     Write-Host " Sup-Update" -NoNewline -ForegroundColor Yellow
     Write-Host " um neuste Version zu installieren."
+    Write-Host " Sup-WhatsNew" -NoNewline -ForegroundColor Yellow
+    Write-Host " um Änderungen der neuen Version(en) anzuzeigen."
 }
 function Sup-WhatsNew {
     param(
