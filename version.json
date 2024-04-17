@@ -1,5 +1,5 @@
 {
-    "Version": "1.16",
+    "Version": "1.15",
     "History": [
         {
             "Version": "1.13",
@@ -14,13 +14,7 @@
         {
             "Version": "1.15",
             "Datum": "17.04.2024",
-            "Beschreibung": "Test 1"
-        },
-        {
-            "Version": "1.16",
-            "Datum": "17.04.2024",
-            "Beschreibung": "Test 2"
+            "Beschreibung": "Update (zeigt Details über neue Versionen an), Versionskontrolle"
         }
-        
     ]
 }

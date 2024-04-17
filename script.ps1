@@ -1,4 +1,4 @@
-$SUPVERSION = "1.14"
+$SUPVERSION = "1.15"
 function Sup-Version {
     Write-Host $SUPVERSION
 }
@@ -9,9 +9,43 @@ if ($c.Version -eq $SUPVERSION) {
     Write-Host "    Aktuelle Version, es gibt keine Updates"
 }
 else {
-    Write-Host "    Updates Verfügbar auf Version $($c.Version). " -NoNewline
-    Write-Host "Sup-Update" -NoNewline -ForegroundColor Yellow
+    Write-Host "    Updates Verfügbar auf Version " -NoNewline
+    Write-Host "$($c.Version)" -NoNewline -ForegroundColor Red
+    Write-Host "." -NoNewline
+    Write-Host " Sup-Update" -NoNewline -ForegroundColor Yellow
     Write-Host " um neuste Version zu installieren."
+}
+function Sup-WhatsNew {
+    param(
+        $ask = $true
+    )
+
+    $c = Invoke-RestMethod "https://raw.githubusercontent.com/TeamSLAH/Sup-Crypt/main/version.json"
+    Write-Host "Aktuelle Version: " -NoNewline
+    Write-Host $SUPVERSION -ForegroundColor Red
+    Write-Host "Neuste Version  : " -NoNewline
+    Write-Host $c.Version -ForegroundColor Green
+    Write-Host
+    [int] $major = $SUPVERSION.SubString(0, $SUPVERSION.IndexOf("."))
+    [int] $minor = $SUPVERSION.Substring($SUPVERSION.IndexOf(".") + 1)
+    $foundNew = $false
+    foreach($version in $c.History) {
+        [int] $ma = $version.Version.SubString(0, $version.Version.IndexOf("."))
+        [int] $mi = $version.Version.Substring($version.Version.IndexOf(".") + 1)
+        if ($ma -gt $major -or ($ma -eq $major -and $mi -gt $minor)) {
+            $foundNew = $true
+            Write-Host "Version : $($version.Version)"
+            Write-Host "Stand   : $($version.Datum)"
+            Write-Host "Neuerung: $($version.Beschreibung)"
+            Write-Host
+        }
+    }
+    if ($foundNew -and $ask) {
+        $e = Read-Host "Neue Version installieren? (J/n)"
+        if ($e -ne "N") {
+            Sup-Update
+        }
+    }
 }
 function Sup-CreateCertificate {
     [CmdletBinding()]
@@ -616,7 +650,13 @@ function Sup-Update {
     param(
 
     )
-    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/TeamSLAH/Sup-Crypt/main/install.ps1'))
+    if ($IsMacOS) {
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/TeamSLAH/Sup-Crypt/main/install.ps1'))
+    }
+    else {
+        Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/TeamSLAH/Sup-Crypt/main/install.ps1'))
+    }
+    Sup-WhatsNew -ask $false
 }
 function Sup-ListCertificates {
     [CmdletBinding()]
