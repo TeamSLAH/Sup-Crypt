@@ -1,4 +1,4 @@
-$SUPVERSION = "1.15"
+$SUPVERSION = "1.16"
 function Sup-Version {
     Write-Host $SUPVERSION
 }
@@ -199,7 +199,8 @@ function Sup-Encrpyt {
     param(
         [ArgumentCompleter({Zertifikat_ArgumentCompleter @args})]
         $CnOrThumbprint = "",
-        $Filename = "",
+        $Path = "",
+        $ZertFile = "",
         [Switch] $Copy
     )
 
@@ -211,22 +212,45 @@ function Sup-Encrpyt {
         }
         Write-Host "Verschluesselung mit Zertifikat " -NoNewline
         Write-Host "$($CnOrThumbprint)" -ForegroundColor Yellow
-        if ($Filename -ne "") {
-            if (Test-Path $Filename) {
-                Sup-ImportCertificate -Filename $Filename
+        if ($ZertFile -ne "") {
+            if (Test-Path $ZertFile) {
+                Sup-ImportCertificate -Filename $ZertFile
             }
         }
 
-        $e = Read-Host "Zu verschluesselnden Text (Enter=aus der Zwischenablage)"
-        if ($e -eq "") {
-            $e = (Get-Clipboard -Raw)
+        if ($Path -ne "") {
+            if (Test-Path $Path) {
+                $Path = (Resolve-Path $Path.ToString()).Path
+                $e = [Convert]::ToBase64String([io.file]::ReadAllBytes($Path))
+            }
+            else {
+                $Path=""
+            }
+        }
+        if ($Path -eq "") {
+            $e = Read-Host "Zu verschluesselnden Text (Enter=aus der Zwischenablage)"
+            if ($e -eq "") {
+                $e = (Get-Clipboard -Raw)
+            }
         }
         try {
             $out = Protect-CmsMessage -Content $e -To $CnOrThumbprint
-            Write-Host $out -ForegroundColor Yellow
+
+            if ($Path -ne "") {
+                $filename = (Get-Item $Path).Name
+                $out = "###FILENAME###:$filename`n$out"
+            }
+            if ($out.Length -lt 1kb) {
+                Write-Host $out -ForegroundColor Yellow
+            }
             Write-Host "Text verschluesselt" -ForegroundColor Green
             if (!($Copy)) {
-                $e = Read-Host "Soll der Text des CMS-String in die Zwischenablage kopiert werden? (J/n)"
+                if ($out.Length -lt 1kb) {
+                    $e = Read-Host "Soll der Text des CMS-String in die Zwischenablage kopiert werden? (J/n)"
+                }
+                else {
+                    $e = "J"
+                }
                 if ($e -ne "N") {
                     $Copy = $true
                 }
@@ -245,7 +269,7 @@ function Sup-Encrpyt {
         }
     }
     else {
-        if ($Filename -eq "") {
+        if ($ZertFile -eq "") {
             if ($Global:cert -ne $null) {
                 $cert = $Global:cert
                 if (!($IsMac)) {
@@ -269,8 +293,8 @@ function Sup-Encrpyt {
                     $cert = $null
                 }
             }
-            if ($Filename -ne "") {
-                Sup-ImportCertificate -Filename $Filename
+            if ($ZertFile -ne "") {
+                Sup-ImportCertificate -Filename $ZertFile
             }
             if ($Global:cert -eq $null) {
                 $cert = SelectCertificate $CnOrThumbprint
@@ -284,16 +308,34 @@ function Sup-Encrpyt {
             }
             Write-Host "Verschluesselung mit Zertifikat " -NoNewline
             Write-Host "$($cert.Subject)" -ForegroundColor Yellow
-            $e = Read-Host "Zu verschluesselnden Text (Enter=aus der Zwischenablage)"
-            if ($e -eq "") {
-                $e = (Get-Clipboard -Raw)
+            if ($Path -ne "") {
+                if (Test-Path $Path) {
+                    $Path = (Resolve-Path $Path.ToString()).Path
+                    $e = [Convert]::ToBase64String([io.file]::ReadAllBytes($Path))
+                }
+                else {
+                    $Path=""
+                }
+            }
+            if ($Path -eq "") {
+                $e = Read-Host "Zu verschluesselnden Text (Enter=aus der Zwischenablage)"
+                if ($e -eq "") {
+                    $e = (Get-Clipboard -Raw)
+                }
             }
             try {
                 $out = Protect-CmsMessage -Content $e -to $cert.Subject
-                Write-Host $out -ForegroundColor Yellow
+                if ($out.Length -lt 1kb) {
+                    Write-Host $out -ForegroundColor Yellow
+                }
                 Write-Host "Text verschluesselt, verschluesselter Text in die Zwischenablage kopiert" -ForegroundColor Green
                 if (!($Copy)) {
-                    $e = Read-Host "Soll der Text des CMS-String in die Zwischenablage kopiert werden? (J/n)"
+                    if ($out.Length -lt 1kb) {
+                        $e = Read-Host "Soll der Text des CMS-String in die Zwischenablage kopiert werden? (J/n)"
+                    }
+                    else {
+                        $e = "J"
+                    }
                     if ($e -ne "N") {
                         $Copy = $true
                     }
@@ -322,32 +364,63 @@ function Sup-Decrpyt {
     [CmdletBinding()]
     [Alias("ent","entschlüsseln", "entschluesseln", "decrypt")]
     param(
-        $Filename = "",
         [Switch] $Copy
     )
+    if (!(IsCMSInClip)) {
+        $e = Read-Host "Zu entschluesselnden Text in die Zwischenablage kopieren und Enter druecken."
+    }
 
-    if ($IsMacOS) {
-        if (!(IsCMSInClip)) {
-            $e = Read-Host "Zu entschluesselnden Text in die Zwischenablage kopieren und Enter druecken."
+    try {
+        $cms = (Get-Clipboard -Raw)
+        $out = Unprotect-CmsMessage -Content ($cms)
+        if ($cms.Contains("###FILENAME###:")) {
+            $i = $cms.IndexOf("###FILENAME###:")
+            $r = $cms.IndexOf("`n", $i)
+            $filename = $cms.SubString($i+15, $r-15)
+            $Path = (Join-Path (Get-Location) $filename)
+
+            EncryptFile $Path $out
         }
-        try {
-            $out = Unprotect-CmsMessage -Content (Get-Clipboard -Raw)
+        else {
             CopyStringPart $out
-        }
-        catch {
-            Write-Host "Fehler beim entschluesseln!" -ForegroundColor Red
         }
     }
-    else {
-        if (!(IsCMSInClip)) {
-            $e = Read-Host "Zu entschluesselnden Text in die Zwischenablage kopieren und Enter druecken."
+    catch {
+        Write-Host "Fehler beim entschluesseln!" -ForegroundColor Red
+    }
+}
+function EncryptFile {
+    param(
+        $Path,
+        $Out
+    )
+
+    $Path = $Path.ToString()
+    $destPath = $Path 
+
+    $a = [convert]::FromBase64String($out)
+    [io.file]::WriteAllBytes($destPath, $a)
+    Write-Host "Entschluesselte Datei " -NoNewline
+    Write-Host $destPath -ForegroundColor Yellow
+
+    $p = (Get-Item $destPath).Directory.FullName
+    while($true) {
+        $e = Read-Host "(O)effnen, (P)fad offnen, Pfad (k)opieren, (D)atei (l)oeschen? Enter=fertig (o/p/k/d/l)"
+        if ($e -eq "P") {
+            Invoke-Item $p
         }
-        try {
-            $out = Unprotect-CmsMessage -Content (Get-Clipboard -Raw)
-            CopyStringPart $out
+        elseif ($e -eq "K") {
+            Set-Clipboard $p
         }
-        catch {
-            Write-Host "Fehler beim entschluesseln!" -ForegroundColor Red
+        elseif ($e -eq "D" -or $e -eq "L") {
+            Remove-Item $destPath
+            break
+        }
+        elseif ($e -eq "O") {
+            Invoke-Item $destPath
+        }
+        else {
+            break
         }
     }
 }
@@ -652,7 +725,7 @@ function Sup-Update {
     param(
 
     )
-    Sup-WhatsNew -ask $false
+    Sup-Whats<BS><BS><BS> -ask $false
     if ($IsMacOS) {
         [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/TeamSLAH/Sup-Crypt/main/install.ps1'))
     }
