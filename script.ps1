@@ -1,4 +1,4 @@
-$SUPVERSION = "1.18"
+$SUPVERSION = "1.19"
 function Sup-Version {
     Write-Host $SUPVERSION
 }
@@ -377,6 +377,10 @@ function Sup-Decrpyt {
             $i = $cms.IndexOf("###FILENAME###:")
             $r = $cms.IndexOf("`n", $i)
             $filename = $cms.SubString($i+15, $r-15)
+
+            while( ([int]$filename[$filename.Length - 1]) -eq 13) {
+                $filename = $filename.SubString(0, $filename.Length - 1)
+            }
             # Download Folder
             $df = Resolve-Path "~/Downloads"
             if (Test-Path $df) {
@@ -387,6 +391,8 @@ function Sup-Decrpyt {
                 $df = [System.IO.Path]::GetTempPath()
                 $Path = (Join-Path $df $filename)
             }
+
+
 
             EncryptFile $Path $out
         }

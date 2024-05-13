@@ -1,5 +1,5 @@
 {
-    "Version": "1.18",
+    "Version": "1.19",
     "History": [
         {
             "Version": "1.13",
@@ -30,6 +30,12 @@
             "Version": "1.18",
             "Datum": "13.05.2024",
             "Beschreibung": "Bugfix beim Entschlüsseln (Windows Download oder Temp Ordner verwenden statt User-Root)"
+        },
+        {
+            "Version": "1.19",
+            "Datum": "13.05.2024",
+            "Beschreibung": "Bugfix bei Dateipfad (ASCII 13 am Ende abgeschneiden)"
         }
+
     ]
 }
