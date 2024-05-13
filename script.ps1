@@ -1,4 +1,4 @@
-$SUPVERSION = "1.16"
+$SUPVERSION = "1.17"
 function Sup-Version {
     Write-Host $SUPVERSION
 }
@@ -725,7 +725,7 @@ function Sup-Update {
     param(
 
     )
-    Sup-Whats<BS><BS><BS> -ask $false
+    Sup-WhatsNew -ask $false
     if ($IsMacOS) {
         [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/TeamSLAH/Sup-Crypt/main/install.ps1'))
     }
