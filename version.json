@@ -25,6 +25,11 @@
             "Version": "1.17",
             "Datum": "13.05.2024",
             "Beschreibung": "Bugfix beim Sup-Update"
+        },
+        {
+            "Version": "1.18",
+            "Datum": "13.05.2024",
+            "Beschreibung": "Bugfix beim Entschlüsseln (Windows Download oder Temp Ordner verwenden statt User-Root)"
         }
     ]
 }
