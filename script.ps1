@@ -1,4 +1,4 @@
-$SUPVERSION = "1.19"
+$SUPVERSION = "1.20"
 function Sup-Version {
     Write-Host $SUPVERSION
 }
@@ -84,6 +84,11 @@ function Sup-ExportCertificate {
         $cert = $null
 
     )
+    if ($IsMacOS) {
+        Write-Host "Export von Zertifikaten auf dem Mac ist vorerst nicht möglich!" -ForegroundColor Red
+        return
+    }
+
     if ($cert -eq $null) {
         $cert = (GetZertifikateFromSubjectOrCN $CnOrThumbprint)
         if ($cert -eq $null) {
@@ -135,8 +140,22 @@ function Sup-ExportCertificate {
         }
     }
 
-    $pwd = Read-Host "Passwort" -AsSecureString
-    $pwd2 = Read-Host "Passwort wiederholen" -AsSecureString
+    $pwd = Read-Host "Passwort (leer für automatische generierung)" -MaskInput
+    if ($pwd -eq "") {
+        $pwd = GeneratePassword
+        Write-Host "Erstelltes Passwort in die Zwischenablage kopiert" -ForegroundColor Green
+        Write-Host "Erstelltes Passwort ausgeben? (j/N): " -NoNewline
+        $e = Read-Host
+        if ($e -eq "J") {
+            Write-Host "Passwort: $($pwd)" -ForegroundColor Gray
+        }
+        Set-Clipboard $pwd
+        $pwd = ConvertTo-SecureString -String $pwd -AsPlainText
+        $pwd2 = $pwd
+    }
+    else {
+        $pwd2 = Read-Host "Passwort wiederholen" -AsSecureString
+    }
     if (Compare-SecureString $pwd $pwd2) {
         try {
             Export-PfxCertificate "Cert:\CurrentUser\My\$($cert.Thumbprint)" -FilePath $Filename -Password $pwd 
@@ -934,24 +953,27 @@ function GetZertifikateFromSubjectOrCN {
         $subjectOrCn = ""
     )
  
-    $zertifikate = Get-ChildItem Cert:\CurrentUser\My\
+    if (!$IsMacOS) 
+    {
+        $zertifikate = Get-ChildItem Cert:\CurrentUser\My\
 
-    foreach($zert in $zertifikate) {
-        $sub = $zert.Subject
-        if ($sub -eq $null) {
-            $sub=""
-        }
-        if ($subjectOrCn.ToUpper().StartsWith("CN=")) {
-            if ($sub -eq "$($subjectOrCn)") {
-                return $zert
+        foreach($zert in $zertifikate) {
+            $sub = $zert.Subject
+            if ($sub -eq $null) {
+                $sub=""
             }
-        }  
-        else {
-            if ($sub.Length -gt 3) {
-                if ($sub.SubString(3) -eq "$($subjectOrCn)" -or ($zert.Thumbprint -eq "$($subjectOrCn)")) {
+            if ($subjectOrCn.ToUpper().StartsWith("CN=")) {
+                if ($sub -eq "$($subjectOrCn)") {
                     return $zert
                 }
-            } 
+            }  
+            else {
+                if ($sub.Length -gt 3) {
+                    if ($sub.SubString(3) -eq "$($subjectOrCn)" -or ($zert.Thumbprint -eq "$($subjectOrCn)")) {
+                        return $zert
+                    }
+                } 
+            }
         }
     }
 }
@@ -1335,4 +1357,27 @@ function CopyStringPart {
             $msg = "Ungültige Eingabe!"
         }
     }
+}
+
+$symbols = '?.-_!#*'.ToCharArray()
+$characterList = 'a'..'z' + 'A'..'Z' + '0'..'9' + $symbols
+
+function GeneratePassword {
+    param(
+        [ValidateRange(12, 256)]
+        [int] 
+        $length = 18
+    )
+
+    do {
+        $password = -join (0..$length | % { $characterList | Get-Random })
+        [int]$hasLowerChar = $password -cmatch '[a-z]'
+        [int]$hasUpperChar = $password -cmatch '[A-Z]'
+        [int]$hasDigit = $password -match '[0-9]'
+        [int]$hasSymbol = $password.IndexOfAny($symbols) -ne -1
+
+    }
+    until (($hasLowerChar + $hasUpperChar + $hasDigit + $hasSymbol) -ge 3)
+
+    $password 
 }

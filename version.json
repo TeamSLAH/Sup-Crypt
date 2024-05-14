@@ -1,5 +1,5 @@
 {
-    "Version": "1.19",
+    "Version": "1.20",
     "History": [
         {
             "Version": "1.13",
@@ -35,7 +35,11 @@
             "Version": "1.19",
             "Datum": "13.05.2024",
             "Beschreibung": "Bugfix bei Dateipfad (ASCII 13 am Ende abgeschneiden)"
+        },
+        {
+            "Version": "1.20",
+            "Datum": "14.05.2024",
+            "Beschreibung": "Passwortgenerator beim Export von Zertifikaten eingebaut"
         }
-
     ]
 }
