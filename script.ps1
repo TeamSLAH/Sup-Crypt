@@ -1,4 +1,4 @@
-$SUPVERSION = "1.20"
+$SUPVERSION = "1.21"
 function Sup-Version {
     Write-Host $SUPVERSION
 }
@@ -262,6 +262,8 @@ function Sup-Encrpyt {
             if ($out.Length -lt 1kb) {
                 Write-Host $out -ForegroundColor Yellow
             }
+            $out = "Anleitung/Installation/Git Repo: [Github](https://github.com/TeamSLAH/Sup-Crypt/tree/main)`nEntschluesseln mit : ``ent```n```````n$out`n```````n"
+
             Write-Host "Text verschluesselt" -ForegroundColor Green
             if (!($Copy)) {
                 if ($out.Length -lt 1kb) {
