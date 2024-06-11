@@ -183,7 +183,7 @@ Wichtig ist: Das ###FILENAME### muss mit kopiert werden, damit erkannt wird, das
 
 Anschließend wird folgendes angezeigt:
 
-![Optionen nach entschlüsseln einer Datei (Öffnen, Pfad öffnen/kopieren, Datei löschen)[pics/img13.png)
+![Optionen nach entschlüsseln einer Datei (Öffnen, Pfad öffnen/kopieren, Datei löschen](pics/img13.png)
 
 Hier kann mit
 
